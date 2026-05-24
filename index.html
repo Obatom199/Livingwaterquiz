@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Study CBT — Login</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .group-selector { display: flex; gap: .8rem; margin-bottom: 1.4rem; }
+    .group-btn {
+      flex: 1; padding: .7rem;
+      border: 2px solid var(--parchment2);
+      border-radius: 8px; background: #fffdf5;
+      font-family: var(--font-head); font-size: 1rem;
+      cursor: pointer; text-align: center;
+      transition: border-color .18s, background .18s;
+      color: var(--ink-soft);
+    }
+    .group-btn:hover { border-color: var(--gold); }
+    .group-btn.active { border-color: var(--gold); background: var(--gold-pale); color: var(--ink); font-weight: 700; }
+    .group-btn .g-icon { font-size: 1.5rem; display: block; margin-bottom: .2rem; }
+
+    .verse {
+      font-style: italic; font-size: .95rem;
+      color: var(--ink-soft); text-align: center;
+      margin-top: 1.5rem; padding-top: 1rem;
+      border-top: 1px solid var(--parchment2);
+    }
+    .verse cite { display: block; font-size: .8rem; margin-top: .2rem; color: var(--gold); font-style: normal; }
+
+    .admin-link {
+      margin-top: 1.2rem; text-align: center; font-size: .85rem;
+    }
+    .admin-link a { color: var(--gold); text-decoration: none; font-weight: 600; }
+    .admin-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="card">
+
+    <div class="app-header">
+      <span class="crown">✦</span>
+      <h1>Bible Study CBT</h1>
+      <p class="subtitle">Computer Based Review Quiz</p>
+    </div>
+
+    <div id="alert-box" style="display:none"></div>
+
+    <div class="divider">Select Your Class</div>
+
+    <div class="group-selector">
+      <button class="group-btn active" data-group="youth" onclick="selectGroup(this)">
+        <span class="g-icon">🌱</span>
+        Youth Class
+      </button>
+      <button class="group-btn" data-group="adult" onclick="selectGroup(this)">
+        <span class="g-icon">📖</span>
+        Adult Class
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label for="inp-name">Full Name</label>
+      <input type="text" id="inp-name" placeholder="Enter your full name" autocomplete="off" />
+    </div>
+
+    <div class="form-group">
+      <label for="inp-pin">Your PIN</label>
+      <input type="password" id="inp-pin" placeholder="Enter the PIN given to you" autocomplete="off"
+             onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="doLogin()">
+      Begin Exam &nbsp;→
+    </button>
+
+    <p class="verse">
+      "Study to shew thyself approved unto God…"
+      <cite>— 2 Timothy 2:15</cite>
+    </p>
+
+    <div class="admin-link">
+      <a href="admin.html">⚙ Admin Panel</a>
+    </div>
+
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let selectedGroup = 'youth';
+
+  function selectGroup(btn) {
+    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedGroup = btn.dataset.group;
+  }
+
+  function showAlert(msg, type = 'error') {
+    const box = document.getElementById('alert-box');
+    box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+    box.style.display = 'block';
+  }
+
+  function doLogin() {
+    const name = document.getElementById('inp-name').value.trim();
+    const pin  = document.getElementById('inp-pin').value.trim();
+
+    if (!name) { showAlert('Please enter your full name.'); return; }
+    if (!pin)  { showAlert('Please enter your PIN.'); return; }
+
+    // Verify the student is in the selected group
+    const students = CBT.getStudents();
+    const match    = students.find(
+      s => s.name.trim().toLowerCase() === name.toLowerCase()
+        && s.pin === pin
+    );
+
+    if (match && match.group !== selectedGroup) {
+      showAlert(`You are registered in the <strong>${match.group === 'youth' ? 'Youth' : 'Adult'}</strong> class. Please select the correct class above.`);
+      return;
+    }
+
+    if (match && match.done) {
+      showAlert('You have already submitted this exam. Contact the admin if this is a mistake.', 'info');
+      return;
+    }
+
+    const result = CBT.studentLogin(name, pin);
+    if (!result.ok) { showAlert(result.error); return; }
+
+    window.location.href = 'exam.html';
+  }
+</script>
+</body>
+</html>

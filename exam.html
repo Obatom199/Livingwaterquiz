@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Study CBT — Exam</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { background: var(--parchment2); }
+
+    .exam-wrap { max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
+
+    /* answered indicator */
+    .answered-count {
+      font-size: .85rem; color: var(--parchment);
+      opacity: .75;
+    }
+
+    /* submit confirmation modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: rgba(26,18,8,.7); backdrop-filter: blur(2px);
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #fffdf5; border-radius: var(--radius);
+      padding: 2rem 2.4rem; max-width: 420px; width: 90%;
+      box-shadow: 0 12px 40px rgba(0,0,0,.3);
+      text-align: center;
+    }
+    .modal h2 { font-family: var(--font-head); margin-bottom: .7rem; }
+    .modal p  { color: var(--ink-soft); margin-bottom: 1.5rem; font-size: 1rem; }
+    .modal-btns { display: flex; gap: .8rem; justify-content: center; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="exam-topbar">
+  <div class="student-info">
+    <strong id="bar-name">Student</strong>
+    &nbsp;·&nbsp;
+    <span id="bar-group-badge"></span>
+  </div>
+
+  <div class="timer" id="timer-display">60:00</div>
+
+  <div class="answered-count" id="answered-count">0 / 0 answered</div>
+
+  <div class="progress-bar-wrap" style="order:10;width:100%">
+    <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- Question area -->
+<div class="exam-wrap">
+  <div class="question-number" id="q-number">Question 1 of 150</div>
+  <div class="question-text"  id="q-text"></div>
+  <ul class="options-list"    id="options-list"></ul>
+
+  <div class="exam-nav">
+    <button class="btn btn-outline" id="btn-prev" onclick="navigate(-1)">← Previous</button>
+    <button class="btn btn-secondary" onclick="openSubmitModal()">Submit Exam</button>
+    <button class="btn btn-primary" id="btn-next" onclick="navigate(1)">Next →</button>
+  </div>
+</div>
+
+<!-- Question palette toggle -->
+<button class="palette-toggle" onclick="togglePalette()" title="Question Navigator">☰</button>
+
+<div class="palette-drawer" id="palette-drawer">
+  <h3>Question Navigator</h3>
+  <div class="palette-grid" id="palette-grid"></div>
+  <div style="margin-top:.8rem;font-size:.78rem;color:var(--ink-soft);">
+    <span style="display:inline-block;width:12px;height:12px;background:var(--sage);border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Answered
+    &nbsp;
+    <span style="display:inline-block;width:12px;height:12px;background:var(--parchment2);border:1.5px solid var(--gold);border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Current
+  </div>
+</div>
+
+<!-- Submit confirmation modal -->
+<div class="modal-overlay" id="submit-modal">
+  <div class="modal">
+    <h2>Submit Exam?</h2>
+    <p id="modal-msg">You have answered <strong id="modal-answered">0</strong> of <strong id="modal-total">0</strong> questions.<br>Unanswered questions will be marked wrong.</p>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeSubmitModal()">Go Back</button>
+      <button class="btn btn-primary" onclick="confirmSubmit()">Yes, Submit</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ── Guards ──────────────────────────────────────────────────
+let session = CBT.getSession();
+if (!session || session.submitted) {
+  window.location.href = 'index.html';
+}
+
+const totalQ = session.questionOrder.length;
+let currentPos = session.currentPos || 0;
+let timerInterval;
+
+// ── Initialise UI ────────────────────────────────────────────
+document.getElementById('bar-name').textContent = session.studentName;
+const groupBadge = document.getElementById('bar-group-badge');
+groupBadge.innerHTML = `<span class="badge badge-${session.group}">${session.group}</span>`;
+
+buildPalette();
+renderQuestion(currentPos);
+startTimer();
+
+// ── Timer ─────────────────────────────────────────────────────
+function startTimer() {
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    const rem = CBT.timeRemaining(session);
+    if (rem <= 0) { clearInterval(timerInterval); autoSubmit(); return; }
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const rem = CBT.timeRemaining(session);
+  const el  = document.getElementById('timer-display');
+  el.textContent = CBT.formatTime(rem);
+  el.classList.toggle('urgent', rem < 120);
+}
+
+function autoSubmit() {
+  document.getElementById('submit-modal').classList.remove('open');
+  doSubmit();
+}
+
+// ── Render question ───────────────────────────────────────────
+function renderQuestion(pos) {
+  currentPos = pos;
+  session.currentPos = pos;
+  CBT.saveSession(session);
+  session = CBT.getSession(); // re-read
+
+  const q     = CBT.getQuestionAtPos(session, pos);
+  const opts  = ['A', 'B', 'C', 'D'];
+  const saved = session.answers[pos] ?? -1;
+
+  document.getElementById('q-number').textContent =
+    `Question ${pos + 1} of ${totalQ}`;
+  document.getElementById('q-text').textContent = q.text;
+
+  const list = document.getElementById('options-list');
+  list.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const li = document.createElement('li');
+    li.className = 'option-item' + (saved === i ? ' selected' : '');
+    li.innerHTML = `
+      <span class="option-letter">${opts[i]}</span>
+      <span class="option-text">${opt}</span>`;
+    li.onclick = () => selectOption(i, li);
+    list.appendChild(li);
+  });
+
+  document.getElementById('btn-prev').disabled = pos === 0;
+  document.getElementById('btn-next').disabled = pos === totalQ - 1;
+
+  updateProgress();
+  updatePalette();
+}
+
+function selectOption(idx, li) {
+  document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+  li.classList.add('selected');
+  CBT.recordAnswer(currentPos, idx);
+  session = CBT.getSession();
+  updateProgress();
+  updatePalette();
+}
+
+function navigate(delta) {
+  const next = currentPos + delta;
+  if (next < 0 || next >= totalQ) return;
+  renderQuestion(next);
+}
+
+// ── Progress ──────────────────────────────────────────────────
+function updateProgress() {
+  const answered = Object.keys(session.answers).length;
+  document.getElementById('answered-count').textContent =
+    `${answered} / ${totalQ} answered`;
+  document.getElementById('progress-bar').style.width =
+    `${(answered / totalQ) * 100}%`;
+}
+
+// ── Palette ───────────────────────────────────────────────────
+function buildPalette() {
+  const grid = document.getElementById('palette-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < totalQ; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'palette-btn';
+    btn.textContent = i + 1;
+    btn.dataset.pos = i;
+    btn.onclick = () => { renderQuestion(i); }
+    grid.appendChild(btn);
+  }
+}
+
+function updatePalette() {
+  const btns = document.querySelectorAll('.palette-btn');
+  btns.forEach(btn => {
+    const pos = +btn.dataset.pos;
+    btn.classList.toggle('answered', session.answers[pos] !== undefined);
+    btn.classList.toggle('current',  pos === currentPos);
+  });
+}
+
+function togglePalette() {
+  document.getElementById('palette-drawer').classList.toggle('open');
+}
+
+// Close palette when clicking outside
+document.addEventListener('click', e => {
+  const drawer  = document.getElementById('palette-drawer');
+  const toggle  = document.querySelector('.palette-toggle');
+  if (!drawer.contains(e.target) && e.target !== toggle) {
+    drawer.classList.remove('open');
+  }
+});
+
+// ── Submit flow ───────────────────────────────────────────────
+function openSubmitModal() {
+  session = CBT.getSession();
+  const answered = Object.keys(session.answers).length;
+  document.getElementById('modal-answered').textContent = answered;
+  document.getElementById('modal-total').textContent    = totalQ;
+  document.getElementById('submit-modal').classList.add('open');
+}
+
+function closeSubmitModal() {
+  document.getElementById('submit-modal').classList.remove('open');
+}
+
+function confirmSubmit() {
+  clearInterval(timerInterval);
+  doSubmit();
+}
+
+function doSubmit() {
+  const result = CBT.submitExam();
+  if (!result) { window.location.href = 'index.html'; return; }
+  // Save result to sessionStorage for results page to read
+  sessionStorage.setItem('bibleCBT_lastResult', JSON.stringify(result));
+  window.location.href = 'results.html';
+}
+</script>
+</body>
+</html>

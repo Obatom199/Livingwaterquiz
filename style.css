@@ -1,0 +1,424 @@
+/* ============================================================
+   BIBLE STUDY CBT — Stylesheet
+   Theme: Sacred Manuscript — warm parchment tones, deep ink,
+   gold accents. Reminiscent of illuminated manuscripts.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&display=swap');
+
+/* ── Variables ─────────────────────────────────────────────── */
+:root {
+  --parchment:   #f5efe0;
+  --parchment2:  #ede3cc;
+  --ink:         #1a1208;
+  --ink-soft:    #3d2f1a;
+  --gold:        #b8860b;
+  --gold-light:  #e0b830;
+  --gold-pale:   #f7e9a0;
+  --crimson:     #8b1a1a;
+  --sage:        #3d5a3e;
+  --shadow:      rgba(26,18,8,0.18);
+  --radius:      10px;
+  --font-head:   'Playfair Display', serif;
+  --font-body:   'Crimson Pro', serif;
+}
+
+/* ── Reset & Base ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 18px;
+  background: var(--parchment);
+  color: var(--ink);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── Texture overlay ────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+/* ── Layout wrappers ────────────────────────────────────────── */
+.page-wrap {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.card {
+  background: #fffdf5;
+  border: 1px solid var(--parchment2);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 32px var(--shadow), 0 1px 0 var(--gold) inset;
+  padding: 2.5rem 2.8rem;
+  width: 100%; max-width: 540px;
+}
+
+.card-wide { max-width: 860px; }
+.card-full { max-width: 1100px; }
+
+/* ── Ornamental header ──────────────────────────────────────── */
+.app-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.app-header .crown {
+  font-size: 2rem; line-height: 1;
+  color: var(--gold);
+  display: block;
+  margin-bottom: .3rem;
+}
+
+.app-header h1 {
+  font-family: var(--font-head);
+  font-size: 2rem; font-weight: 900;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.app-header .subtitle {
+  font-size: 1rem; color: var(--ink-soft);
+  font-style: italic; margin-top: .3rem;
+}
+
+/* ── Divider ────────────────────────────────────────────────── */
+.divider {
+  display: flex; align-items: center; gap: .8rem;
+  margin: 1.4rem 0; color: var(--gold);
+  font-size: .85rem; letter-spacing: .12em; text-transform: uppercase;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--gold);
+}
+
+/* ── Form elements ──────────────────────────────────────────── */
+.form-group { margin-bottom: 1.2rem; }
+
+label {
+  display: block;
+  font-size: .95rem; font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: .35rem;
+  letter-spacing: .03em;
+}
+
+input[type="text"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+  padding: .65rem 1rem;
+  border: 1.5px solid var(--parchment2);
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  background: var(--parchment);
+  color: var(--ink);
+  transition: border-color .2s, box-shadow .2s;
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-pale);
+}
+
+textarea { resize: vertical; min-height: 90px; }
+
+/* ── Buttons ────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .72rem 1.8rem;
+  border: none; border-radius: 6px;
+  font-family: var(--font-head);
+  font-size: 1.05rem; font-weight: 700;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .2s, background .2s;
+  text-decoration: none;
+}
+
+.btn:active { transform: scale(.97); }
+
+.btn-primary {
+  background: var(--gold);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(184,134,11,.35);
+}
+.btn-primary:hover {
+  background: #a07708;
+  box-shadow: 0 5px 18px rgba(184,134,11,.5);
+}
+
+.btn-secondary {
+  background: var(--ink);
+  color: var(--parchment);
+}
+.btn-secondary:hover { background: var(--ink-soft); }
+
+.btn-danger {
+  background: var(--crimson);
+  color: #fff;
+}
+.btn-danger:hover { background: #6e1414; }
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--gold);
+  color: var(--gold);
+}
+.btn-outline:hover { background: var(--gold-pale); }
+
+.btn-full { width: 100%; }
+.btn-sm { padding: .4rem 1rem; font-size: .9rem; }
+
+/* ── Group badges ───────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: .15rem .7rem;
+  border-radius: 30px;
+  font-size: .78rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.badge-youth  { background: #e8f4e8; color: var(--sage);   border: 1px solid var(--sage); }
+.badge-adult  { background: #f4e8e8; color: var(--crimson); border: 1px solid var(--crimson); }
+
+/* ── Alert / Notice ─────────────────────────────────────────── */
+.alert {
+  padding: .8rem 1.1rem;
+  border-radius: 6px;
+  font-size: .95rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid;
+}
+.alert-error   { background: #fdf0f0; border-color: var(--crimson); color: var(--crimson); }
+.alert-success { background: #f0fdf0; border-color: var(--sage);    color: var(--sage); }
+.alert-info    { background: var(--gold-pale); border-color: var(--gold); color: var(--ink-soft); }
+
+/* ── Exam-specific ──────────────────────────────────────────── */
+.exam-topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--ink);
+  color: var(--parchment);
+  padding: .75rem 1.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+
+.exam-topbar .student-info { font-size: .95rem; }
+.exam-topbar .student-info strong { color: var(--gold-light); }
+
+.timer {
+  font-family: var(--font-head);
+  font-size: 1.3rem; font-weight: 700;
+  color: var(--gold-light);
+  min-width: 80px; text-align: center;
+  letter-spacing: .05em;
+}
+.timer.urgent { color: #ff6b6b; animation: pulse .7s infinite alternate; }
+
+@keyframes pulse { from { opacity: 1; } to { opacity: .5; } }
+
+.progress-bar-wrap {
+  width: 100%;
+  background: rgba(255,255,255,.1);
+  border-radius: 30px; height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--gold-light);
+  border-radius: 30px;
+  transition: width .4s ease;
+}
+
+/* ── Question card ──────────────────────────────────────────── */
+.question-area {
+  padding: 2rem 1rem;
+  max-width: 780px; margin: 0 auto;
+}
+
+.question-number {
+  font-size: .88rem; font-weight: 600; color: var(--gold);
+  text-transform: uppercase; letter-spacing: .1em;
+  margin-bottom: .5rem;
+}
+
+.question-text {
+  font-family: var(--font-head);
+  font-size: 1.3rem; font-weight: 600;
+  color: var(--ink);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.options-list { list-style: none; display: flex; flex-direction: column; gap: .75rem; }
+
+.option-item {
+  display: flex; align-items: flex-start; gap: .9rem;
+  padding: .85rem 1.1rem;
+  border: 2px solid var(--parchment2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .18s, background .18s, transform .1s;
+  background: #fffdf7;
+}
+
+.option-item:hover {
+  border-color: var(--gold);
+  background: var(--gold-pale);
+  transform: translateX(4px);
+}
+
+.option-item.selected {
+  border-color: var(--gold);
+  background: var(--gold-pale);
+}
+
+.option-letter {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--gold);
+  font-family: var(--font-head);
+  font-weight: 700; font-size: .85rem;
+  color: var(--gold);
+  background: #fff;
+  transition: background .18s, color .18s;
+}
+
+.option-item.selected .option-letter {
+  background: var(--gold);
+  color: #fff;
+}
+
+.option-text { font-size: 1.05rem; line-height: 1.4; padding-top: 2px; }
+
+/* ── Nav buttons ────────────────────────────────────────────── */
+.exam-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 2rem; gap: 1rem;
+}
+
+/* ── Question palette ───────────────────────────────────────── */
+.palette-toggle {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 20;
+  background: var(--ink); color: var(--gold-light);
+  border: none; border-radius: 50%;
+  width: 52px; height: 52px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  transition: transform .2s;
+}
+.palette-toggle:hover { transform: scale(1.1); }
+
+.palette-drawer {
+  position: fixed; bottom: 80px; right: 1.5rem; z-index: 20;
+  background: #fffdf5;
+  border: 1px solid var(--parchment2);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px var(--shadow);
+  padding: 1rem;
+  width: 260px;
+  display: none;
+}
+.palette-drawer.open { display: block; }
+
+.palette-drawer h3 {
+  font-family: var(--font-head); font-size: 1rem;
+  margin-bottom: .7rem; color: var(--ink-soft);
+}
+
+.palette-grid {
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+}
+
+.palette-btn {
+  width: 100%; aspect-ratio: 1;
+  border: 1.5px solid var(--parchment2);
+  border-radius: 4px;
+  font-size: .72rem; font-weight: 700;
+  background: #fffdf5;
+  cursor: pointer;
+  color: var(--ink-soft);
+  transition: background .15s, border-color .15s;
+}
+.palette-btn.answered  { background: var(--sage); color: #fff; border-color: var(--sage); }
+.palette-btn.current   { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-pale); }
+.palette-btn:hover     { border-color: var(--gold); }
+
+/* ── Results page ───────────────────────────────────────────── */
+.score-ring-wrap { text-align: center; margin: 1.5rem 0; }
+.score-number {
+  font-family: var(--font-head);
+  font-size: 4rem; font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+}
+.score-label { font-size: 1rem; color: var(--ink-soft); margin-top: .3rem; }
+
+.results-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.results-table th {
+  background: var(--ink); color: var(--gold-light);
+  padding: .6rem .9rem; text-align: left;
+  font-family: var(--font-head);
+}
+.results-table td { padding: .6rem .9rem; border-bottom: 1px solid var(--parchment2); }
+.results-table tr:hover td { background: var(--gold-pale); }
+
+/* ── Admin page ─────────────────────────────────────────────── */
+.admin-tabs {
+  display: flex; gap: .5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--parchment2);
+  padding-bottom: .5rem;
+}
+
+.tab-btn {
+  background: none; border: none;
+  font-family: var(--font-head); font-size: 1rem;
+  color: var(--ink-soft); cursor: pointer;
+  padding: .4rem 1rem;
+  border-radius: 6px 6px 0 0;
+  transition: background .15s, color .15s;
+}
+.tab-btn.active {
+  background: var(--gold-pale);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.student-row {
+  display: flex; align-items: center; gap: .8rem;
+  padding: .6rem .8rem;
+  border-radius: 6px;
+  border: 1px solid var(--parchment2);
+  margin-bottom: .5rem;
+  background: #fffdf7;
+  flex-wrap: wrap;
+}
+.student-row span { flex: 1; min-width: 100px; }
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .card { padding: 1.8rem 1.3rem; }
+  .question-text { font-size: 1.1rem; }
+  .exam-topbar { padding: .6rem 1rem; }
+  .timer { font-size: 1.1rem; }
+  .score-number { font-size: 3rem; }
+}

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Study CBT — Your Results</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .result-card { text-align: center; }
+
+    .score-circle {
+      display: inline-flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 160px; height: 160px;
+      border-radius: 50%;
+      border: 6px solid var(--gold);
+      background: var(--gold-pale);
+      margin: 1.2rem auto;
+      box-shadow: 0 0 0 10px var(--parchment2);
+    }
+
+    .grade-label {
+      display: inline-block;
+      font-family: var(--font-head);
+      font-size: 1.1rem; font-weight: 700;
+      padding: .3rem 1.2rem;
+      border-radius: 30px;
+      margin-bottom: 1rem;
+    }
+
+    .grade-A { background: #e8f4e8; color: var(--sage);    border: 1px solid var(--sage); }
+    .grade-B { background: var(--gold-pale); color: var(--gold); border: 1px solid var(--gold); }
+    .grade-C { background: #fdf7e0; color: #8a6a00; border: 1px solid #c8a800; }
+    .grade-F { background: #fdf0f0; color: var(--crimson); border: 1px solid var(--crimson); }
+
+    .stats-row {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+      justify-content: center; margin: 1.2rem 0;
+    }
+    .stat-box {
+      flex: 1; min-width: 100px;
+      background: var(--parchment2);
+      border-radius: 8px; padding: .8rem;
+      text-align: center;
+    }
+    .stat-box strong { display: block; font-family: var(--font-head); font-size: 1.6rem; color: var(--ink); }
+    .stat-box small  { font-size: .8rem; color: var(--ink-soft); }
+
+    .review-toggle {
+      background: none; border: none;
+      font-family: var(--font-head); font-size: .95rem;
+      color: var(--gold); cursor: pointer;
+      text-decoration: underline; margin-top: .5rem;
+    }
+
+    .review-table { margin-top: 1rem; font-size: .9rem; }
+    .review-table td, .review-table th { padding: .45rem .7rem; text-align: left; }
+    .review-table tr.wrong td { background: #fdf0f0; }
+    .review-table tr.right td { background: #f0fdf0; }
+    .icon-right { color: var(--sage); font-weight: 700; }
+    .icon-wrong { color: var(--crimson); font-weight: 700; }
+
+    #review-section { display: none; }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="card card-wide result-card">
+
+    <div class="app-header">
+      <span class="crown">✦</span>
+      <h1>Exam Complete</h1>
+    </div>
+
+    <div id="result-content">
+      <p style="color:var(--ink-soft)">Loading results…</p>
+    </div>
+
+    <div style="margin-top:1.5rem;display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;">
+      <a href="index.html" class="btn btn-outline">← Back to Login</a>
+      <button class="review-toggle" onclick="toggleReview()">View Answer Review ▾</button>
+    </div>
+
+    <div id="review-section">
+      <div class="divider">Answer Review</div>
+      <div style="overflow-x:auto;">
+        <table class="review-table results-table" id="review-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Question</th>
+              <th>Your Answer</th>
+              <th>Correct Answer</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="review-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const raw = sessionStorage.getItem('bibleCBT_lastResult');
+
+  if (!raw) {
+    document.getElementById('result-content').innerHTML =
+      '<div class="alert alert-error">No result found. Please go back and log in.</div>';
+  } else {
+    const res = JSON.parse(raw);
+    CBT.clearSession();
+
+    const pct   = res.percent;
+    let grade   = pct >= 70 ? 'A' : pct >= 60 ? 'B' : pct >= 50 ? 'C' : 'F';
+    let gradeLabel = { A: 'Excellent ★', B: 'Good', C: 'Fair', F: 'Needs Improvement' }[grade];
+
+    const mins = Math.floor(res.timeTaken / 60);
+    const secs = res.timeTaken % 60;
+
+    document.getElementById('result-content').innerHTML = `
+      <p>Well done, <strong>${res.studentName}</strong>
+        &nbsp;<span class="badge badge-${res.group}">${res.group}</span>
+      </p>
+
+      <div class="score-circle">
+        <span class="score-number">${pct}%</span>
+        <small style="color:var(--ink-soft)">${res.score}/${res.total}</small>
+      </div>
+
+      <div>
+        <span class="grade-label grade-${grade}">${gradeLabel}</span>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <strong>${res.score}</strong>
+          <small>Correct</small>
+        </div>
+        <div class="stat-box">
+          <strong>${res.total - res.score}</strong>
+          <small>Wrong</small>
+        </div>
+        <div class="stat-box">
+          <strong>${mins}m ${secs}s</strong>
+          <small>Time Taken</small>
+        </div>
+      </div>
+    `;
+
+    // Build review table
+    const questions = CBT.getQuestions();
+    const letters   = ['A','B','C','D'];
+    const tbody     = document.getElementById('review-body');
+
+    res.answers.forEach((a, idx) => {
+      const q    = questions[a.qId];
+      const tr   = document.createElement('tr');
+      tr.className = a.correct ? 'right' : 'wrong';
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${q.text}</td>
+        <td>${a.chosen >= 0 ? letters[a.chosen] + '. ' + q.options[a.chosen] : '—'}</td>
+        <td>${letters[q.answer]}. ${q.options[q.answer]}</td>
+        <td>${a.correct ? '<span class="icon-right">✓</span>' : '<span class="icon-wrong">✗</span>'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function toggleReview() {
+    const sec = document.getElementById('review-section');
+    sec.style.display = sec.style.display === 'none' || !sec.style.display ? 'block' : 'none';
+  }
+</script>
+</body>
+</html>
