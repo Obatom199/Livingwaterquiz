@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Study CBT — Admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { padding: 0; }
+    .admin-wrap { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+    .admin-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.8rem; flex-wrap: wrap; gap: 1rem;
+    }
+    .admin-header h1 { font-family: var(--font-head); font-size: 1.7rem; }
+    .admin-header a   { color: var(--gold); text-decoration: none; font-size: .9rem; }
+
+    /* Auth gate */
+    #auth-gate { max-width: 400px; margin: 6rem auto; }
+
+    /* Questions tab */
+    .q-count-badge {
+      background: var(--ink); color: var(--gold-light);
+      padding: .1rem .6rem; border-radius: 30px;
+      font-size: .78rem; font-weight: 700;
+    }
+
+    .bulk-format-help {
+      background: var(--parchment2);
+      border-radius: 6px; padding: 1rem 1.2rem;
+      font-size: .85rem; line-height: 1.7;
+      margin-bottom: 1rem;
+    }
+    .bulk-format-help code {
+      background: var(--ink); color: var(--gold-light);
+      padding: .1rem .4rem; border-radius: 3px; font-size: .82rem;
+    }
+
+    .q-preview-wrap { max-height: 320px; overflow-y: auto; margin-top: 1rem; }
+    .q-preview-item {
+      display: flex; gap: .8rem; align-items: flex-start;
+      padding: .6rem .8rem; border-bottom: 1px solid var(--parchment2);
+      font-size: .9rem;
+    }
+    .q-preview-item .qn { color: var(--gold); font-weight: 700; min-width: 26px; }
+    .q-preview-item .qa { color: var(--sage); font-size: .8rem; flex-shrink: 0; }
+
+    /* Students tab */
+    .add-student-form {
+      display: grid; grid-template-columns: 1fr 1fr auto auto;
+      gap: .6rem; align-items: end; margin-bottom: 1.2rem;
+    }
+    @media (max-width: 600px) {
+      .add-student-form { grid-template-columns: 1fr 1fr; }
+    }
+
+    .pin-display {
+      font-family: monospace; font-size: 1.1rem;
+      background: var(--gold-pale); padding: .1rem .4rem;
+      border-radius: 4px; color: var(--ink);
+    }
+
+    /* Results tab */
+    .group-section { margin-bottom: 2rem; }
+    .group-section h3 {
+      font-family: var(--font-head); margin-bottom: .8rem;
+      color: var(--ink-soft); font-size: 1.1rem;
+    }
+
+    .export-btn { margin-top: .5rem; }
+  </style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth-gate" class="card" style="display:none">
+  <div class="app-header">
+    <span class="crown">✦</span>
+    <h1>Admin Access</h1>
+    <p class="subtitle">Enter the admin password to continue</p>
+  </div>
+  <div id="auth-alert" style="display:none"></div>
+  <div class="form-group">
+    <label>Admin Password</label>
+    <input type="password" id="auth-pw" placeholder="Password"
+           onkeydown="if(event.key==='Enter') checkAuth()" />
+  </div>
+  <button class="btn btn-primary btn-full" onclick="checkAuth()">Enter</button>
+  <p style="text-align:center;margin-top:1rem;font-size:.85rem">
+    <a href="index.html" style="color:var(--gold)">← Back to Student Login</a>
+  </p>
+</div>
+
+<!-- Main admin panel (hidden until auth) -->
+<div id="admin-main" style="display:none">
+<div class="admin-wrap">
+
+  <div class="admin-header">
+    <h1>⚙ Admin Panel</h1>
+    <div style="display:flex;gap:1rem;align-items:center">
+      <a href="index.html">← Student Login</a>
+      <button class="btn btn-danger btn-sm" onclick="dangerReset()">🗑 Reset All Data</button>
+    </div>
+  </div>
+
+  <div id="main-alert" style="display:none;margin-bottom:1rem"></div>
+
+  <!-- Tabs -->
+  <div class="admin-tabs">
+    <button class="tab-btn active" onclick="switchTab(this,'tab-questions')">
+      Questions <span class="q-count-badge" id="q-count-badge">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-students')">Students</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-results')">Results</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-settings')">Settings</button>
+  </div>
+
+  <!-- ── QUESTIONS TAB ───────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-questions">
+
+    <div class="bulk-format-help">
+      <strong>Bulk Import Format</strong> — paste all your questions below. Each question is a block separated by a blank line:<br><br>
+      <code>Q: Who was the first king of Israel?</code><br>
+      <code>A: David</code><br>
+      <code>B: Saul</code><br>
+      <code>C: Solomon</code><br>
+      <code>D: Samuel</code><br>
+      <code>ANS: B</code>
+    </div>
+
+    <div class="form-group">
+      <label>Paste Questions Here (supports up to 150+)</label>
+      <textarea id="bulk-input" rows="12" placeholder="Q: …&#10;A: …&#10;B: …&#10;C: …&#10;D: …&#10;ANS: …&#10;&#10;Q: next question…"></textarea>
+    </div>
+
+    <div style="display:flex;gap:.8rem;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="importQuestions()">Import Questions</button>
+      <button class="btn btn-outline btn-sm" onclick="clearQuestions()">Clear All Questions</button>
+    </div>
+
+    <div class="q-preview-wrap" id="q-preview"></div>
+  </div>
+
+  <!-- ── STUDENTS TAB ────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-students">
+
+    <h3 style="font-family:var(--font-head);margin-bottom:1rem">Add Student</h3>
+    <div class="add-student-form">
+      <div class="form-group" style="margin:0">
+        <label>Full Name</label>
+        <input type="text" id="s-name" placeholder="Student name" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Class Group</label>
+        <select id="s-group">
+          <option value="youth">Youth</option>
+          <option value="adult">Adult</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>PIN (auto)</label>
+        <input type="text" id="s-pin" placeholder="Auto" maxlength="6" style="width:90px" />
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-bottom:.05rem" onclick="addStudent()">Add</button>
+    </div>
+
+    <div class="divider">Youth Class — <span id="youth-count">0</span> students</div>
+    <div id="youth-list"></div>
+
+    <div class="divider" style="margin-top:1.5rem">Adult Class — <span id="adult-count">0</span> students</div>
+    <div id="adult-list"></div>
+
+    <div style="margin-top:1.2rem;display:flex;gap:.8rem;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="exportStudents()">📋 Export Student List (CSV)</button>
+      <button class="btn btn-outline btn-sm" onclick="resetAllDone()">↺ Reset Submission Flags</button>
+    </div>
+  </div>
+
+  <!-- ── RESULTS TAB ─────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-results">
+
+    <div style="margin-bottom:1rem;display:flex;gap:.8rem;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="loadResults()">🔄 Refresh Results</button>
+      <button class="btn btn-outline btn-sm" onclick="exportResults()">📊 Export Results (CSV)</button>
+    </div>
+
+    <div class="group-section">
+      <h3>🌱 Youth Class</h3>
+      <div style="overflow-x:auto">
+        <table class="results-table" id="youth-results-table">
+          <thead><tr><th>#</th><th>Name</th><th>Score</th><th>%</th><th>Time</th><th>Date</th></tr></thead>
+          <tbody id="youth-results-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="group-section">
+      <h3>📖 Adult Class</h3>
+      <div style="overflow-x:auto">
+        <table class="results-table" id="adult-results-table">
+          <thead><tr><th>#</th><th>Name</th><th>Score</th><th>%</th><th>Time</th><th>Date</th></tr></thead>
+          <tbody id="adult-results-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── SETTINGS TAB ────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="card" style="max-width:420px;box-shadow:none;border:1px solid var(--parchment2)">
+      <div class="form-group">
+        <label>Exam Duration (minutes)</label>
+        <input type="number" id="set-duration" min="10" max="240" value="60" />
+      </div>
+      <div class="form-group">
+        <label>Admin Password</label>
+        <input type="password" id="set-pw" placeholder="Change admin password" />
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+
+</div><!-- /admin-wrap -->
+</div><!-- /admin-main -->
+
+<script src="app.js"></script>
+<script>
+// ── Auth ─────────────────────────────────────────────────────
+const DEFAULT_PW = 'admin1234'; // Change this after first login via Settings
+
+function getAdminPw() {
+  return localStorage.getItem('bibleCBT_adminpw') || DEFAULT_PW;
+}
+
+function checkAuth() {
+  const pw = document.getElementById('auth-pw').value;
+  if (pw === getAdminPw()) {
+    document.getElementById('auth-gate').style.display  = 'none';
+    document.getElementById('admin-main').style.display = 'block';
+    initAdmin();
+  } else {
+    const box = document.getElementById('auth-alert');
+    box.innerHTML = '<div class="alert alert-error">Incorrect password.</div>';
+    box.style.display = 'block';
+  }
+}
+
+// Show auth gate on load
+document.getElementById('auth-gate').style.display = 'block';
+
+// ── Tab switching ────────────────────────────────────────────
+function switchTab(btn, id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(id).classList.add('active');
+  if (id === 'tab-results') loadResults();
+  if (id === 'tab-students') renderStudents();
+}
+
+// ── Init ─────────────────────────────────────────────────────
+function initAdmin() {
+  renderQuestionPreview();
+  renderStudents();
+  // Load settings
+  const dur = localStorage.getItem('bibleCBT_duration');
+  if (dur) document.getElementById('set-duration').value = dur;
+}
+
+// ── Alerts ───────────────────────────────────────────────────
+function showAlert(msg, type = 'success') {
+  const box = document.getElementById('main-alert');
+  box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  box.style.display = 'block';
+  setTimeout(() => { box.style.display = 'none'; }, 5000);
+}
+
+// ── Questions ────────────────────────────────────────────────
+function importQuestions() {
+  const text = document.getElementById('bulk-input').value;
+  if (!text.trim()) { showAlert('Please paste your questions first.', 'error'); return; }
+
+  const { questions, errors } = CBT.parseBulkQuestions(text);
+
+  if (errors.length) {
+    showAlert('Some blocks had errors:<br>' + errors.join('<br>'), 'error');
+  }
+
+  if (questions.length === 0) { showAlert('No valid questions found. Check the format.', 'error'); return; }
+
+  const existing = CBT.getQuestions();
+  const merged   = [...existing, ...questions];
+  CBT.saveQuestions(merged);
+  showAlert(`✓ ${questions.length} question(s) imported. Total: ${merged.length}`);
+  renderQuestionPreview();
+}
+
+function clearQuestions() {
+  if (!confirm('Clear ALL questions? This cannot be undone.')) return;
+  CBT.saveQuestions([]);
+  renderQuestionPreview();
+  showAlert('All questions cleared.', 'info');
+}
+
+function renderQuestionPreview() {
+  const qs    = CBT.getQuestions();
+  const badge = document.getElementById('q-count-badge');
+  badge.textContent = qs.length;
+
+  const wrap = document.getElementById('q-preview');
+  if (qs.length === 0) {
+    wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">No questions loaded yet.</p>';
+    return;
+  }
+
+  const letters = ['A','B','C','D'];
+  wrap.innerHTML = qs.slice(0, 50).map((q, i) => `
+    <div class="q-preview-item">
+      <span class="qn">${i+1}.</span>
+      <span style="flex:1">${q.text}</span>
+      <span class="qa">ANS: ${letters[q.answer]}</span>
+    </div>
+  `).join('') + (qs.length > 50 ? `<p style="padding:.6rem;font-size:.85rem;color:var(--ink-soft)">…and ${qs.length - 50} more.</p>` : '');
+}
+
+// ── Students ──────────────────────────────────────────────────
+function addStudent() {
+  const name  = document.getElementById('s-name').value.trim();
+  const group = document.getElementById('s-group').value;
+  let   pin   = document.getElementById('s-pin').value.trim();
+
+  if (!name) { showAlert('Please enter a student name.', 'error'); return; }
+
+  // Auto-generate PIN if blank
+  if (!pin) pin = Math.floor(1000 + Math.random() * 9000).toString();
+
+  const students = CBT.getStudents();
+
+  // Check duplicate
+  if (students.find(s => s.name.toLowerCase() === name.toLowerCase() && s.group === group)) {
+    showAlert(`"${name}" already exists in the ${group} class.`, 'error'); return;
+  }
+
+  students.push({ id: CBT.generateId(), name, pin, group, done: false });
+  CBT.saveStudents(students);
+  document.getElementById('s-name').value = '';
+  document.getElementById('s-pin').value  = '';
+  renderStudents();
+  showAlert(`✓ ${name} added to ${group} class. PIN: <strong>${pin}</strong>`);
+}
+
+function removeStudent(id) {
+  if (!confirm('Remove this student?')) return;
+  CBT.saveStudents(CBT.getStudents().filter(s => s.id !== id));
+  renderStudents();
+}
+
+function renderStudents() {
+  const students = CBT.getStudents();
+  const youth    = students.filter(s => s.group === 'youth');
+  const adult    = students.filter(s => s.group === 'adult');
+
+  document.getElementById('youth-count').textContent = youth.length;
+  document.getElementById('adult-count').textContent = adult.length;
+
+  renderStudentList('youth-list', youth);
+  renderStudentList('adult-list', adult);
+}
+
+function renderStudentList(containerId, students) {
+  const wrap = document.getElementById(containerId);
+  if (students.length === 0) {
+    wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;padding:.4rem 0">No students added yet.</p>';
+    return;
+  }
+  wrap.innerHTML = students.map(s => `
+    <div class="student-row">
+      <span>${s.name}</span>
+      <span><span class="pin-display">${s.pin}</span></span>
+      <span>${s.done ? '✅ Done' : '⏳ Pending'}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeStudent('${s.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function resetAllDone() {
+  if (!confirm('This will allow all students to re-take the exam. Continue?')) return;
+  const students = CBT.getStudents().map(s => ({ ...s, done: false }));
+  CBT.saveStudents(students);
+  CBT.saveSubmissions && CBT.saveSubmissions([]);
+  localStorage.removeItem('bibleCBT_submissions');
+  renderStudents();
+  showAlert('All submission flags reset. Students can take the exam again.', 'info');
+}
+
+function exportStudents() {
+  const students = CBT.getStudents();
+  const rows = [['Name','Group','PIN','Status']];
+  students.forEach(s => rows.push([s.name, s.group, s.pin, s.done ? 'Done' : 'Pending']));
+  downloadCSV(rows, 'students.csv');
+}
+
+// ── Results ───────────────────────────────────────────────────
+function loadResults() {
+  const subs  = CBT.getSubmissions();
+  const youth = subs.filter(s => s.group === 'youth');
+  const adult = subs.filter(s => s.group === 'adult');
+
+  renderResultsTable('youth-results-body', youth);
+  renderResultsTable('adult-results-body', adult);
+}
+
+function renderResultsTable(tbodyId, subs) {
+  const tbody = document.getElementById(tbodyId);
+  if (subs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink-soft);font-style:italic">No submissions yet.</td></tr>';
+    return;
+  }
+  const sorted = [...subs].sort((a,b) => b.score - a.score);
+  tbody.innerHTML = sorted.map((s, i) => {
+    const mins = Math.floor(s.timeTaken / 60);
+    const secs = s.timeTaken % 60;
+    const date = new Date(s.date).toLocaleString();
+    return `
+      <tr>
+        <td>${i+1}</td>
+        <td>${s.studentName}</td>
+        <td>${s.score}/${s.total}</td>
+        <td><strong>${s.percent}%</strong></td>
+        <td>${mins}m ${secs}s</td>
+        <td>${date}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function exportResults() {
+  const subs = CBT.getSubmissions();
+  const rows = [['Name','Group','Score','Total','Percent','Time(s)','Date']];
+  subs.forEach(s => rows.push([s.studentName, s.group, s.score, s.total, s.percent+'%', s.timeTaken, new Date(s.date).toLocaleString()]));
+  downloadCSV(rows, 'results.csv');
+}
+
+// ── Settings ──────────────────────────────────────────────────
+function saveSettings() {
+  const dur = document.getElementById('set-duration').value;
+  const pw  = document.getElementById('set-pw').value.trim();
+  if (dur) localStorage.setItem('bibleCBT_duration', dur);
+  if (pw)  { localStorage.setItem('bibleCBT_adminpw', pw); document.getElementById('set-pw').value = ''; }
+  showAlert('Settings saved.');
+}
+
+// ── Danger zone ───────────────────────────────────────────────
+function dangerReset() {
+  if (!confirm('⚠ This will delete ALL questions, students, and results. Are you sure?')) return;
+  if (!confirm('Last chance! This CANNOT be undone. Continue?')) return;
+  CBT.clearAllData();
+  renderQuestionPreview();
+  renderStudents();
+  showAlert('All data has been cleared.', 'info');
+}
+
+// ── CSV helper ────────────────────────────────────────────────
+function downloadCSV(rows, filename) {
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
