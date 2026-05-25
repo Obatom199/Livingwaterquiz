@@ -214,7 +214,7 @@ function generateId() {
 function parseBulkQuestions(text) {
   const questions = [];
   const errors    = [];
-  const blocks    = text.trim().split(/\n\s*\n+/);
+  const blocks = text.trim().split(/\n(?=Q:)/);
 
   blocks.forEach((block, i) => {
     const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
