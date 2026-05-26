@@ -33,6 +33,21 @@
     }
     .admin-link a { color: var(--gold); text-decoration: none; font-weight: 600; }
     .admin-link a:hover { text-decoration: underline; }
+    
+    body {
+      background-image: url('https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=1400&q=60');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background: rgba(245, 239, 224, 0.72);
+      backdrop-filter: blur(3px);
+    }
   </style>
 </head>
 <body>
