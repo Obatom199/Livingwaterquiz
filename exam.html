@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RCCG Living Water Bible Study Quiz</title>
+  <title>Bible Study CBT — Exam</title>
   <link rel="stylesheet" href="style.css" />
   <style>
     body { background: var(--parchment2); }
@@ -246,10 +246,12 @@ function confirmSubmit() {
   doSubmit();
 }
 
-function doSubmit() {
-  const result = CBT.submitExam();
+async function doSubmit() {
+  const submitBtn = document.querySelector('.modal-btns .btn-primary');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+
+  const result = await CBT.submitExam();
   if (!result) { window.location.href = 'index.html'; return; }
-  // Save result to sessionStorage for results page to read
   sessionStorage.setItem('bibleCBT_lastResult', JSON.stringify(result));
   window.location.href = 'results.html';
 }
