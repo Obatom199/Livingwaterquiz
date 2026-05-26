@@ -10,13 +10,11 @@
 
     .exam-wrap { max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
 
-    /* answered indicator */
     .answered-count {
       font-size: .85rem; color: var(--parchment);
       opacity: .75;
     }
 
-    /* submit confirmation modal */
     .modal-overlay {
       display: none; position: fixed; inset: 0; z-index: 50;
       background: rgba(26,18,8,.7); backdrop-filter: blur(2px);
@@ -32,6 +30,17 @@
     .modal h2 { font-family: var(--font-head); margin-bottom: .7rem; }
     .modal p  { color: var(--ink-soft); margin-bottom: 1.5rem; font-size: 1rem; }
     .modal-btns { display: flex; gap: .8rem; justify-content: center; }
+
+    .no-more-msg {
+      background: var(--gold-pale);
+      color: var(--ink);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 600;
+      margin-top: 1rem;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -58,6 +67,10 @@
   <div class="question-number" id="q-number">Question 1 of 150</div>
   <div class="question-text"  id="q-text"></div>
   <ul class="options-list"    id="options-list"></ul>
+
+  <div id="no-more-msg" class="no-more-msg">
+    No further questions. Please review your answers and click <strong>Submit Exam</strong>.
+  </div>
 
   <div class="exam-nav">
     <button class="btn btn-outline" id="btn-prev" onclick="navigate(-1)">← Previous</button>
@@ -136,17 +149,16 @@ function autoSubmit() {
 
 // ── Render question ───────────────────────────────────────────
 function renderQuestion(pos) {
-  currentPos = pos;
-  session.currentPos = pos;
+  currentPos = Math.max(0, Math.min(pos, totalQ - 1));
+  session.currentPos = currentPos;
   CBT.saveSession(session);
-  session = CBT.getSession(); // re-read
+  session = CBT.getSession();
 
-  const q     = CBT.getQuestionAtPos(session, pos);
+  const q     = CBT.getQuestionAtPos(session, currentPos);
   const opts  = ['A', 'B', 'C', 'D'];
-  const saved = session.answers[pos] ?? -1;
+  const saved = session.answers[currentPos] ?? -1;
 
-  document.getElementById('q-number').textContent =
-    `Question ${pos + 1} of ${totalQ}`;
+  document.getElementById('q-number').textContent = `Question ${currentPos + 1} of ${totalQ}`;
   document.getElementById('q-text').textContent = q.text;
 
   const list = document.getElementById('options-list');
@@ -161,8 +173,14 @@ function renderQuestion(pos) {
     list.appendChild(li);
   });
 
-  document.getElementById('btn-prev').disabled = pos === 0;
-  document.getElementById('btn-next').disabled = pos === totalQ - 1;
+  // Button control
+  document.getElementById('btn-prev').disabled = currentPos === 0;
+  const nextBtn = document.getElementById('btn-next');
+  nextBtn.disabled = currentPos === totalQ - 1;
+
+  // Show message when on last question
+  document.getElementById('no-more-msg').style.display = 
+    (currentPos === totalQ - 1) ? 'block' : 'none';
 
   updateProgress();
   updatePalette();
@@ -178,8 +196,14 @@ function selectOption(idx, li) {
 }
 
 function navigate(delta) {
-  const next = currentPos + delta;
-  if (next < 0 || next >= totalQ) return;
+  let next = currentPos + delta;
+
+  if (next >= totalQ) {
+    document.getElementById('no-more-msg').style.display = 'block';
+    return;
+  }
+  if (next < 0) return;
+
   renderQuestion(next);
 }
 
@@ -201,7 +225,7 @@ function buildPalette() {
     btn.className = 'palette-btn';
     btn.textContent = i + 1;
     btn.dataset.pos = i;
-    btn.onclick = () => { renderQuestion(i); }
+    btn.onclick = () => { renderQuestion(i); };
     grid.appendChild(btn);
   }
 }
@@ -241,17 +265,23 @@ function closeSubmitModal() {
   document.getElementById('submit-modal').classList.remove('open');
 }
 
-function confirmSubmit() {
+async function confirmSubmit() {
   clearInterval(timerInterval);
   doSubmit();
 }
 
 async function doSubmit() {
   const submitBtn = document.querySelector('.modal-btns .btn-primary');
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+  if (submitBtn) { 
+    submitBtn.disabled = true; 
+    submitBtn.textContent = 'Submitting…'; 
+  }
 
   const result = await CBT.submitExam();
-  if (!result) { window.location.href = 'index.html'; return; }
+  if (!result) { 
+    window.location.href = 'index.html'; 
+    return; 
+  }
   sessionStorage.setItem('bibleCBT_lastResult', JSON.stringify(result));
   window.location.href = 'results.html';
 }
