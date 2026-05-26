@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RCCG Living Water Bible Study Quiz — Admin</title>
+  <title>RCCG Living Water Bible Study Quiz</title>
   <link rel="stylesheet" href="style.css" />
   <style>
     body { padding: 0; }
@@ -136,7 +136,7 @@
 
     <div style="display:flex;gap:.8rem;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="importQuestions()">Import Questions</button>
-      <button class="btn btn-outline btn-sm" onclick="clearQuestions()">Clear All Questions</button>
+      <button class="btn btn-outline btn-sm" onclick="clearQuestionsAdmin()">Clear All Questions</button>
     </div>
 
     <div class="q-preview-wrap" id="q-preview"></div>
@@ -173,7 +173,7 @@
 
     <div style="margin-top:1.2rem;display:flex;gap:.8rem;flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="exportStudents()">📋 Export Student List (CSV)</button>
-      <button class="btn btn-outline btn-sm" onclick="resetAllDone()">↺ Reset Submission Flags</button>
+      <button class="btn btn-outline btn-sm" onclick="resetAllDoneAdmin()">↺ Reset Submission Flags</button>
     </div>
   </div>
 
@@ -227,8 +227,9 @@
 
 <script src="app.js"></script>
 <script>
+<script>
 // ── Auth ─────────────────────────────────────────────────────
-const DEFAULT_PW = 'admin1234'; // Change this after first login via Settings
+const DEFAULT_PW = 'admin1234';
 
 function getAdminPw() {
   return localStorage.getItem('bibleCBT_adminpw') || DEFAULT_PW;
@@ -256,7 +257,7 @@ function switchTab(btn, id) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(id).classList.add('active');
-  if (id === 'tab-results') loadResults();
+  if (id === 'tab-results')  loadResults();
   if (id === 'tab-students') renderStudents();
 }
 
@@ -264,7 +265,6 @@ function switchTab(btn, id) {
 function initAdmin() {
   renderQuestionPreview();
   renderStudents();
-  // Load settings
   const dur = localStorage.getItem('bibleCBT_duration');
   if (dur) document.getElementById('set-duration').value = dur;
 }
@@ -274,11 +274,17 @@ function showAlert(msg, type = 'success') {
   const box = document.getElementById('main-alert');
   box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
   box.style.display = 'block';
-  setTimeout(() => { box.style.display = 'none'; }, 5000);
+  setTimeout(() => { box.style.display = 'none'; }, 6000);
+}
+
+function setLoading(msg) {
+  const box = document.getElementById('main-alert');
+  box.innerHTML = `<div class="alert alert-info">⏳ ${msg}</div>`;
+  box.style.display = 'block';
 }
 
 // ── Questions ────────────────────────────────────────────────
-function importQuestions() {
+async function importQuestions() {
   const text = document.getElementById('bulk-input').value;
   if (!text.trim()) { showAlert('Please paste your questions first.', 'error'); return; }
 
@@ -290,83 +296,111 @@ function importQuestions() {
 
   if (questions.length === 0) { showAlert('No valid questions found. Check the format.', 'error'); return; }
 
-  const existing = CBT.getQuestions();
-  const merged   = [...existing, ...questions];
-  CBT.saveQuestions(merged);
-  showAlert(`✓ ${questions.length} question(s) imported. Total: ${merged.length}`);
-  renderQuestionPreview();
-}
-
-function clearQuestions() {
-  if (!confirm('Clear ALL questions? This cannot be undone.')) return;
-  CBT.saveQuestions([]);
-  renderQuestionPreview();
-  showAlert('All questions cleared.', 'info');
-}
-
-function renderQuestionPreview() {
-  const qs    = CBT.getQuestions();
-  const badge = document.getElementById('q-count-badge');
-  badge.textContent = qs.length;
-
-  const wrap = document.getElementById('q-preview');
-  if (qs.length === 0) {
-    wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">No questions loaded yet.</p>';
-    return;
+  setLoading(`Saving ${questions.length} questions to database…`);
+  try {
+    await CBT.saveQuestions(questions);
+    document.getElementById('bulk-input').value = '';
+    showAlert(`✓ ${questions.length} question(s) imported successfully!`);
+    renderQuestionPreview();
+  } catch(e) {
+    showAlert('Error saving questions: ' + e.message, 'error');
   }
+}
 
-  const letters = ['A','B','C','D'];
-  wrap.innerHTML = qs.slice(0, 50).map((q, i) => `
-    <div class="q-preview-item">
-      <span class="qn">${i+1}.</span>
-      <span style="flex:1">${q.text}</span>
-      <span class="qa">ANS: ${letters[q.answer]}</span>
-    </div>
-  `).join('') + (qs.length > 50 ? `<p style="padding:.6rem;font-size:.85rem;color:var(--ink-soft)">…and ${qs.length - 50} more.</p>` : '');
+async function clearQuestionsAdmin() {
+  if (!confirm('Clear ALL questions from the database? This cannot be undone.')) return;
+  setLoading('Clearing questions…');
+  try {
+    await CBT.clearQuestions();
+    showAlert('All questions cleared.', 'info');
+    renderQuestionPreview();
+  } catch(e) {
+    showAlert('Error: ' + e.message, 'error');
+  }
+}
+
+async function renderQuestionPreview() {
+  const wrap  = document.getElementById('q-preview');
+  const badge = document.getElementById('q-count-badge');
+  wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">Loading…</p>';
+
+  try {
+    const qs = await CBT.getQuestions();
+    badge.textContent = qs.length;
+
+    if (qs.length === 0) {
+      wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">No questions loaded yet.</p>';
+      return;
+    }
+
+    const letters = ['A','B','C','D'];
+    wrap.innerHTML = qs.slice(0, 50).map((q, i) => `
+      <div class="q-preview-item">
+        <span class="qn">${i+1}.</span>
+        <span style="flex:1">${q.text}</span>
+        <span class="qa">ANS: ${letters[q.answer]}</span>
+      </div>
+    `).join('') + (qs.length > 50 ? `<p style="padding:.6rem;font-size:.85rem;color:var(--ink-soft)">…and ${qs.length - 50} more.</p>` : '');
+  } catch(e) {
+    wrap.innerHTML = `<p style="color:var(--crimson);font-size:.9rem">Could not load questions: ${e.message}</p>`;
+  }
 }
 
 // ── Students ──────────────────────────────────────────────────
-function addStudent() {
+async function addStudent() {
   const name  = document.getElementById('s-name').value.trim();
   const group = document.getElementById('s-group').value;
   let   pin   = document.getElementById('s-pin').value.trim();
 
   if (!name) { showAlert('Please enter a student name.', 'error'); return; }
+  if (!pin)  pin = Math.floor(1000 + Math.random() * 9000).toString();
 
-  // Auto-generate PIN if blank
-  if (!pin) pin = Math.floor(1000 + Math.random() * 9000).toString();
-
-  const students = CBT.getStudents();
-
-  // Check duplicate
-  if (students.find(s => s.name.toLowerCase() === name.toLowerCase() && s.group === group)) {
-    showAlert(`"${name}" already exists in the ${group} class.`, 'error'); return;
+  setLoading('Adding student…');
+  try {
+    const students = await CBT.getStudents();
+    if (students.find(s => s.name.toLowerCase() === name.toLowerCase() && s.group === group)) {
+      showAlert(`"${name}" already exists in the ${group} class.`, 'error'); return;
+    }
+    await CBT.addStudent({ id: CBT.generateId(), name, pin, group });
+    document.getElementById('s-name').value = '';
+    document.getElementById('s-pin').value  = '';
+    showAlert(`✓ ${name} added to ${group} class. PIN: <strong>${pin}</strong>`);
+    renderStudents();
+  } catch(e) {
+    showAlert('Error adding student: ' + e.message, 'error');
   }
-
-  students.push({ id: CBT.generateId(), name, pin, group, done: false });
-  CBT.saveStudents(students);
-  document.getElementById('s-name').value = '';
-  document.getElementById('s-pin').value  = '';
-  renderStudents();
-  showAlert(`✓ ${name} added to ${group} class. PIN: <strong>${pin}</strong>`);
 }
 
-function removeStudent(id) {
+async function removeStudent(id) {
   if (!confirm('Remove this student?')) return;
-  CBT.saveStudents(CBT.getStudents().filter(s => s.id !== id));
-  renderStudents();
+  setLoading('Removing…');
+  try {
+    await CBT.removeStudent(id);
+    renderStudents();
+    showAlert('Student removed.', 'info');
+  } catch(e) {
+    showAlert('Error: ' + e.message, 'error');
+  }
 }
 
-function renderStudents() {
-  const students = CBT.getStudents();
-  const youth    = students.filter(s => s.group === 'youth');
-  const adult    = students.filter(s => s.group === 'adult');
+async function renderStudents() {
+  document.getElementById('youth-list').innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem">Loading…</p>';
+  document.getElementById('adult-list').innerHTML = '';
 
-  document.getElementById('youth-count').textContent = youth.length;
-  document.getElementById('adult-count').textContent = adult.length;
+  try {
+    const students = await CBT.getStudents();
+    const youth    = students.filter(s => s.group === 'youth');
+    const adult    = students.filter(s => s.group === 'adult');
 
-  renderStudentList('youth-list', youth);
-  renderStudentList('adult-list', adult);
+    document.getElementById('youth-count').textContent = youth.length;
+    document.getElementById('adult-count').textContent = adult.length;
+
+    renderStudentList('youth-list', youth);
+    renderStudentList('adult-list', adult);
+  } catch(e) {
+    document.getElementById('youth-list').innerHTML =
+      `<p style="color:var(--crimson);font-size:.9rem">Error: ${e.message}</p>`;
+  }
 }
 
 function renderStudentList(containerId, students) {
@@ -379,37 +413,48 @@ function renderStudentList(containerId, students) {
     <div class="student-row">
       <span>${s.name}</span>
       <span><span class="pin-display">${s.pin}</span></span>
+      <span class="badge badge-${s.group}">${s.group}</span>
       <span>${s.done ? '✅ Done' : '⏳ Pending'}</span>
       <button class="btn btn-danger btn-sm" onclick="removeStudent('${s.id}')">✕</button>
     </div>
   `).join('');
 }
 
-function resetAllDone() {
-  if (!confirm('This will allow all students to re-take the exam. Continue?')) return;
-  const students = CBT.getStudents().map(s => ({ ...s, done: false }));
-  CBT.saveStudents(students);
-  CBT.saveSubmissions && CBT.saveSubmissions([]);
-  localStorage.removeItem('bibleCBT_submissions');
-  renderStudents();
-  showAlert('All submission flags reset. Students can take the exam again.', 'info');
+async function resetAllDoneAdmin() {
+  if (!confirm('This will allow all students to re-take the exam and clear all results. Continue?')) return;
+  setLoading('Resetting…');
+  try {
+    await CBT.resetAllDone();
+    renderStudents();
+    showAlert('All submission flags reset. Students can take the exam again.', 'info');
+  } catch(e) {
+    showAlert('Error: ' + e.message, 'error');
+  }
 }
 
-function exportStudents() {
-  const students = CBT.getStudents();
+async function exportStudents() {
+  const students = await CBT.getStudents();
   const rows = [['Name','Group','PIN','Status']];
   students.forEach(s => rows.push([s.name, s.group, s.pin, s.done ? 'Done' : 'Pending']));
   downloadCSV(rows, 'students.csv');
 }
 
 // ── Results ───────────────────────────────────────────────────
-function loadResults() {
-  const subs  = CBT.getSubmissions();
-  const youth = subs.filter(s => s.group === 'youth');
-  const adult = subs.filter(s => s.group === 'adult');
+async function loadResults() {
+  document.getElementById('youth-results-body').innerHTML =
+    '<tr><td colspan="6" style="color:var(--ink-soft)">Loading…</td></tr>';
+  document.getElementById('adult-results-body').innerHTML = '';
 
-  renderResultsTable('youth-results-body', youth);
-  renderResultsTable('adult-results-body', adult);
+  try {
+    const subs  = await CBT.getSubmissions();
+    const youth = subs.filter(s => s.group === 'youth');
+    const adult = subs.filter(s => s.group === 'adult');
+    renderResultsTable('youth-results-body', youth);
+    renderResultsTable('adult-results-body', adult);
+  } catch(e) {
+    document.getElementById('youth-results-body').innerHTML =
+      `<tr><td colspan="6" style="color:var(--crimson)">Error: ${e.message}</td></tr>`;
+  }
 }
 
 function renderResultsTable(tbodyId, subs) {
@@ -436,8 +481,8 @@ function renderResultsTable(tbodyId, subs) {
   }).join('');
 }
 
-function exportResults() {
-  const subs = CBT.getSubmissions();
+async function exportResults() {
+  const subs = await CBT.getSubmissions();
   const rows = [['Name','Group','Score','Total','Percent','Time(s)','Date']];
   subs.forEach(s => rows.push([s.studentName, s.group, s.score, s.total, s.percent+'%', s.timeTaken, new Date(s.date).toLocaleString()]));
   downloadCSV(rows, 'results.csv');
@@ -453,13 +498,18 @@ function saveSettings() {
 }
 
 // ── Danger zone ───────────────────────────────────────────────
-function dangerReset() {
-  if (!confirm('⚠ This will delete ALL questions, students, and results. Are you sure?')) return;
+async function dangerReset() {
+  if (!confirm('⚠ This will delete ALL questions, students, and results from the database. Are you sure?')) return;
   if (!confirm('Last chance! This CANNOT be undone. Continue?')) return;
-  CBT.clearAllData();
-  renderQuestionPreview();
-  renderStudents();
-  showAlert('All data has been cleared.', 'info');
+  setLoading('Deleting all data…');
+  try {
+    await CBT.clearAllData();
+    renderQuestionPreview();
+    renderStudents();
+    showAlert('All data has been cleared.', 'info');
+  } catch(e) {
+    showAlert('Error: ' + e.message, 'error');
+  }
 }
 
 // ── CSV helper ────────────────────────────────────────────────
