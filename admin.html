@@ -116,6 +116,15 @@
 
   <!-- QUESTIONS TAB -->
   <div class="tab-panel active" id="tab-questions">
+
+    <div class="form-group">
+      <label>Select Class for Questions</label>
+      <select id="question-group" style="width:200px">
+        <option value="youth">YAYA / Youth Class</option>
+        <option value="adult">Adult Class</option>
+      </select>
+    </div>
+
     <div class="bulk-format-help">
       <strong>Bulk Import Format</strong> — paste all your questions below. Each question is a block separated by a blank line:<br><br>
       <code>Q: Who was the first king of Israel?</code><br>
@@ -133,7 +142,7 @@
 
     <div style="display:flex;gap:.8rem;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="importQuestions()">Import Questions</button>
-      <button class="btn btn-outline btn-sm" onclick="clearQuestionsAdmin()">Clear All Questions</button>
+      <button class="btn btn-outline btn-sm" onclick="clearQuestionsAdmin()">Clear Questions for Selected Class</button>
     </div>
 
     <div class="q-preview-wrap" id="q-preview"></div>
@@ -141,6 +150,7 @@
 
   <!-- STUDENTS TAB -->
   <div class="tab-panel" id="tab-students">
+
     <h3 style="font-family:var(--font-head);margin-bottom:1rem">Add Student</h3>
     <div class="add-student-form">
       <div class="form-group" style="margin:0">
@@ -150,7 +160,7 @@
       <div class="form-group" style="margin:0">
         <label>Class Group</label>
         <select id="s-group">
-          <option value="youth">Youth</option>
+          <option value="youth">Youth (YAYA)</option>
           <option value="adult">Adult</option>
         </select>
       </div>
@@ -175,6 +185,7 @@
 
   <!-- RESULTS TAB -->
   <div class="tab-panel" id="tab-results">
+
     <div style="margin-bottom:1rem;display:flex;gap:.8rem;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="loadResults()">🔄 Refresh Results</button>
       <button class="btn btn-outline btn-sm" onclick="exportResults()">📊 Export Results (CSV)</button>
@@ -199,6 +210,7 @@
         </table>
       </div>
     </div>
+
   </div>
 
   <!-- SETTINGS TAB -->
@@ -207,7 +219,7 @@
       <div class="form-group">
         <label>Exam Duration (minutes)</label>
         <input type="number" id="set-duration" min="10" max="240" value="60" />
-        <small style="color:var(--ink-soft)">New exams will use this duration</small>
+        <small style="color:var(--ink-soft)">This applies to both classes</small>
       </div>
       <div class="form-group">
         <label>Admin Password</label>
@@ -242,6 +254,7 @@ function checkAuth() {
   }
 }
 
+// Show auth gate on load
 document.getElementById('auth-gate').style.display = 'block';
 
 // ── Tab switching ────────────────────────────────────────────
@@ -250,7 +263,7 @@ function switchTab(btn, id) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(id).classList.add('active');
-  if (id === 'tab-results') loadResults();
+  if (id === 'tab-results')  loadResults();
   if (id === 'tab-students') renderStudents();
 }
 
@@ -279,6 +292,8 @@ function setLoading(msg) {
 // ── Questions ────────────────────────────────────────────────
 async function importQuestions() {
   const text = document.getElementById('bulk-input').value;
+  const group = document.getElementById('question-group').value;
+
   if (!text.trim()) { showAlert('Please paste your questions first.', 'error'); return; }
 
   const { questions, errors } = CBT.parseBulkQuestions(text);
@@ -289,11 +304,11 @@ async function importQuestions() {
 
   if (questions.length === 0) { showAlert('No valid questions found. Check the format.', 'error'); return; }
 
-  setLoading(`Saving ${questions.length} questions...`);
+  setLoading(`Saving ${questions.length} questions for ${group} class…`);
   try {
-    await CBT.saveQuestions(questions);
+    await CBT.saveQuestions(questions, group);
     document.getElementById('bulk-input').value = '';
-    showAlert(`✓ ${questions.length} question(s) imported successfully!`);
+    showAlert(`✓ ${questions.length} question(s) imported for ${group} class!`);
     renderQuestionPreview();
   } catch(e) {
     showAlert('Error saving questions: ' + e.message, 'error');
@@ -301,11 +316,13 @@ async function importQuestions() {
 }
 
 async function clearQuestionsAdmin() {
-  if (!confirm('Clear ALL questions from the database? This cannot be undone.')) return;
-  setLoading('Clearing questions…');
+  const group = document.getElementById('question-group').value;
+  if (!confirm(`Clear ALL questions for ${group} class? This cannot be undone.`)) return;
+  
+  setLoading(`Clearing questions for ${group} class…`);
   try {
-    await CBT.clearQuestions();
-    showAlert('All questions cleared.', 'info');
+    await CBT.clearQuestions(group);
+    showAlert(`All questions for ${group} class cleared.`, 'info');
     renderQuestionPreview();
   } catch(e) {
     showAlert('Error: ' + e.message, 'error');
@@ -315,14 +332,16 @@ async function clearQuestionsAdmin() {
 async function renderQuestionPreview() {
   const wrap  = document.getElementById('q-preview');
   const badge = document.getElementById('q-count-badge');
+  const group = document.getElementById('question-group').value;
+  
   wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">Loading…</p>';
 
   try {
-    const qs = await CBT.getQuestions();
+    const qs = await CBT.getQuestions(group);
     badge.textContent = qs.length;
 
     if (qs.length === 0) {
-      wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">No questions loaded yet.</p>';
+      wrap.innerHTML = `<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">No questions loaded yet for ${group} class.</p>`;
       return;
     }
 
@@ -339,8 +358,8 @@ async function renderQuestionPreview() {
   }
 }
 
-// ── Students ─────────────────────────────────────────────────
-async function addStudent() {
+// ── Students, Results, Settings functions (same as before) ──
+async function addStudent() { /* full function */ 
   const name  = document.getElementById('s-name').value.trim();
   const group = document.getElementById('s-group').value;
   let   pin   = document.getElementById('s-pin').value.trim();
@@ -391,7 +410,7 @@ async function renderStudents() {
     renderStudentList('youth-list', youth);
     renderStudentList('adult-list', adult);
   } catch(e) {
-    document.getElementById('youth-list').innerHTML = `<p style="color:var(--crimson)">Error: ${e.message}</p>`;
+    document.getElementById('youth-list').innerHTML = `<p style="color:var(--crimson);font-size:.9rem">Error: ${e.message}</p>`;
   }
 }
 
@@ -412,27 +431,21 @@ function renderStudentList(containerId, students) {
   `).join('');
 }
 
+// Continue with the rest of the functions (loadResults, exportResults, saveSettings, dangerReset, downloadCSV) as in previous full version.
+
 async function resetAllDoneAdmin() {
   if (!confirm('This will allow all students to re-take the exam and clear all results. Continue?')) return;
   setLoading('Resetting…');
   try {
     await CBT.resetAllDone();
     renderStudents();
-    showAlert('All submission flags reset. Students can take the exam again.', 'info');
+    showAlert('All submission flags reset.', 'info');
   } catch(e) {
     showAlert('Error: ' + e.message, 'error');
   }
 }
 
-async function exportStudents() {
-  const students = await CBT.getStudents();
-  const rows = [['Name','Group','PIN','Status']];
-  students.forEach(s => rows.push([s.name, s.group, s.pin, s.done ? 'Done' : 'Pending']));
-  downloadCSV(rows, 'students.csv');
-}
-
-// ── Results ───────────────────────────────────────────────────
-async function loadResults() {
+async function loadResults() { /* full implementation from previous */ 
   document.getElementById('youth-results-body').innerHTML = '<tr><td colspan="6" style="color:var(--ink-soft)">Loading…</td></tr>';
   document.getElementById('adult-results-body').innerHTML = '';
 
@@ -478,7 +491,13 @@ async function exportResults() {
   downloadCSV(rows, 'results.csv');
 }
 
-// ── Settings ──────────────────────────────────────────────────
+async function exportStudents() {
+  const students = await CBT.getStudents();
+  const rows = [['Name','Group','PIN','Status']];
+  students.forEach(s => rows.push([s.name, s.group, s.pin, s.done ? 'Done' : 'Pending']));
+  downloadCSV(rows, 'students.csv');
+}
+
 function saveSettings() {
   const dur = document.getElementById('set-duration').value;
   const pw  = document.getElementById('set-pw').value.trim();
@@ -490,10 +509,9 @@ function saveSettings() {
   showAlert('Settings saved successfully.');
 }
 
-// ── Danger zone ───────────────────────────────────────────────
 async function dangerReset() {
-  if (!confirm('⚠ This will delete ALL questions, students, and results from the database. Are you sure?')) return;
-  if (!confirm('Last chance! This CANNOT be undone. Continue?')) return;
+  if (!confirm('⚠ This will delete ALL questions, students, and results. Are you sure?')) return;
+  if (!confirm('Last chance! This CANNOT be undone.')) return;
   setLoading('Deleting all data…');
   try {
     await CBT.clearAllData();
@@ -505,7 +523,6 @@ async function dangerReset() {
   }
 }
 
-// ── CSV helper ────────────────────────────────────────────────
 function downloadCSV(rows, filename) {
   const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
