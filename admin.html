@@ -67,8 +67,6 @@
       font-family: var(--font-head); margin-bottom: .8rem;
       color: var(--ink-soft); font-size: 1.1rem;
     }
-
-    .export-btn { margin-top: .5rem; }
   </style>
 </head>
 <body>
@@ -209,7 +207,7 @@
       <div class="form-group">
         <label>Exam Duration (minutes)</label>
         <input type="number" id="set-duration" min="10" max="240" value="60" />
-        <small style="color:var(--ink-soft)">This will apply to all new exams.</small>
+        <small style="color:var(--ink-soft)">New exams will use this duration</small>
       </div>
       <div class="form-group">
         <label>Admin Password</label>
@@ -244,7 +242,6 @@ function checkAuth() {
   }
 }
 
-// Show auth gate on load
 document.getElementById('auth-gate').style.display = 'block';
 
 // ── Tab switching ────────────────────────────────────────────
@@ -253,7 +250,7 @@ function switchTab(btn, id) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(id).classList.add('active');
-  if (id === 'tab-results')  loadResults();
+  if (id === 'tab-results') loadResults();
   if (id === 'tab-students') renderStudents();
 }
 
@@ -279,8 +276,8 @@ function setLoading(msg) {
   box.style.display = 'block';
 }
 
-// ── Questions, Students, Results (unchanged from your original) ──
-async function importQuestions() { /* ... your original code ... */ 
+// ── Questions ────────────────────────────────────────────────
+async function importQuestions() {
   const text = document.getElementById('bulk-input').value;
   if (!text.trim()) { showAlert('Please paste your questions first.', 'error'); return; }
 
@@ -289,7 +286,8 @@ async function importQuestions() { /* ... your original code ... */
   if (errors.length) {
     showAlert('Some blocks had errors:<br>' + errors.join('<br>'), 'error');
   }
-  if (questions.length === 0) { showAlert('No valid questions found.', 'error'); return; }
+
+  if (questions.length === 0) { showAlert('No valid questions found. Check the format.', 'error'); return; }
 
   setLoading(`Saving ${questions.length} questions...`);
   try {
@@ -302,8 +300,8 @@ async function importQuestions() { /* ... your original code ... */
   }
 }
 
-async function clearQuestionsAdmin() { /* your original */ 
-  if (!confirm('Clear ALL questions?')) return;
+async function clearQuestionsAdmin() {
+  if (!confirm('Clear ALL questions from the database? This cannot be undone.')) return;
   setLoading('Clearing questions…');
   try {
     await CBT.clearQuestions();
@@ -314,7 +312,7 @@ async function clearQuestionsAdmin() { /* your original */
   }
 }
 
-async function renderQuestionPreview() { /* your original */ 
+async function renderQuestionPreview() {
   const wrap  = document.getElementById('q-preview');
   const badge = document.getElementById('q-count-badge');
   wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;margin-top:.8rem">Loading…</p>';
@@ -341,15 +339,14 @@ async function renderQuestionPreview() { /* your original */
   }
 }
 
-// Students, Results, Export functions remain the same as your original...
-
-async function addStudent() { /* your original code */ 
+// ── Students ─────────────────────────────────────────────────
+async function addStudent() {
   const name  = document.getElementById('s-name').value.trim();
   const group = document.getElementById('s-group').value;
   let   pin   = document.getElementById('s-pin').value.trim();
 
   if (!name) { showAlert('Please enter a student name.', 'error'); return; }
-  if (!pin)  pin = Math.floor(1000 + Math.random() * 9000).toString();
+  if (!pin)  pin = Math.floor(100000 + Math.random() * 900000).toString();
 
   setLoading('Adding student…');
   try {
@@ -360,57 +357,156 @@ async function addStudent() { /* your original code */
     await CBT.addStudent({ id: CBT.generateId(), name, pin, group });
     document.getElementById('s-name').value = '';
     document.getElementById('s-pin').value  = '';
-    showAlert(`✓ ${name} added. PIN: <strong>${pin}</strong>`);
+    showAlert(`✓ ${name} added to ${group} class. PIN: <strong>${pin}</strong>`);
     renderStudents();
   } catch(e) {
     showAlert('Error adding student: ' + e.message, 'error');
   }
 }
 
-// ... (Keep all other functions: renderStudents, removeStudent, loadResults, exportResults, etc. exactly as they were in your original file)
-
-async function resetAllDoneAdmin() { /* your original */ 
-  if (!confirm('Reset all submissions?')) return;
-  setLoading('Resetting…');
+async function removeStudent(id) {
+  if (!confirm('Remove this student?')) return;
+  setLoading('Removing…');
   try {
-    await CBT.resetAllDone();
+    await CBT.removeStudent(id);
     renderStudents();
-    showAlert('All submission flags reset.', 'info');
+    showAlert('Student removed.', 'info');
   } catch(e) {
     showAlert('Error: ' + e.message, 'error');
   }
 }
 
-function saveSettings() {
-  const dur = document.getElementById('set-duration').value;
-  const pw  = document.getElementById('set-pw').value.trim();
+async function renderStudents() {
+  document.getElementById('youth-list').innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem">Loading…</p>';
+  document.getElementById('adult-list').innerHTML = '';
 
-  if (dur) {
-    localStorage.setItem('bibleCBT_duration', dur);
-    showAlert(`Exam duration updated to ${dur} minutes.`);
-  }
-  if (pw) {
-    localStorage.setItem('bibleCBT_adminpw', pw);
-    document.getElementById('set-pw').value = '';
-    showAlert('Admin password changed successfully.');
+  try {
+    const students = await CBT.getStudents();
+    const youth    = students.filter(s => s.group === 'youth');
+    const adult    = students.filter(s => s.group === 'adult');
+
+    document.getElementById('youth-count').textContent = youth.length;
+    document.getElementById('adult-count').textContent = adult.length;
+
+    renderStudentList('youth-list', youth);
+    renderStudentList('adult-list', adult);
+  } catch(e) {
+    document.getElementById('youth-list').innerHTML = `<p style="color:var(--crimson)">Error: ${e.message}</p>`;
   }
 }
 
-async function dangerReset() { /* your original */ 
-  if (!confirm('⚠ Delete ALL data?')) return;
-  if (!confirm('Last chance! This cannot be undone.')) return;
+function renderStudentList(containerId, students) {
+  const wrap = document.getElementById(containerId);
+  if (students.length === 0) {
+    wrap.innerHTML = '<p style="color:var(--ink-soft);font-size:.9rem;padding:.4rem 0">No students added yet.</p>';
+    return;
+  }
+  wrap.innerHTML = students.map(s => `
+    <div class="student-row">
+      <span>${s.name}</span>
+      <span><span class="pin-display">${s.pin}</span></span>
+      <span class="badge badge-${s.group}">${s.group}</span>
+      <span>${s.done ? '✅ Done' : '⏳ Pending'}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeStudent('${s.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function resetAllDoneAdmin() {
+  if (!confirm('This will allow all students to re-take the exam and clear all results. Continue?')) return;
+  setLoading('Resetting…');
+  try {
+    await CBT.resetAllDone();
+    renderStudents();
+    showAlert('All submission flags reset. Students can take the exam again.', 'info');
+  } catch(e) {
+    showAlert('Error: ' + e.message, 'error');
+  }
+}
+
+async function exportStudents() {
+  const students = await CBT.getStudents();
+  const rows = [['Name','Group','PIN','Status']];
+  students.forEach(s => rows.push([s.name, s.group, s.pin, s.done ? 'Done' : 'Pending']));
+  downloadCSV(rows, 'students.csv');
+}
+
+// ── Results ───────────────────────────────────────────────────
+async function loadResults() {
+  document.getElementById('youth-results-body').innerHTML = '<tr><td colspan="6" style="color:var(--ink-soft)">Loading…</td></tr>';
+  document.getElementById('adult-results-body').innerHTML = '';
+
+  try {
+    const subs  = await CBT.getSubmissions();
+    const youth = subs.filter(s => s.group === 'youth');
+    const adult = subs.filter(s => s.group === 'adult');
+    renderResultsTable('youth-results-body', youth);
+    renderResultsTable('adult-results-body', adult);
+  } catch(e) {
+    document.getElementById('youth-results-body').innerHTML = `<tr><td colspan="6" style="color:var(--crimson)">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function renderResultsTable(tbodyId, subs) {
+  const tbody = document.getElementById(tbodyId);
+  if (subs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--ink-soft);font-style:italic">No submissions yet.</td></tr>';
+    return;
+  }
+  const sorted = [...subs].sort((a,b) => b.score - a.score);
+  tbody.innerHTML = sorted.map((s, i) => {
+    const mins = Math.floor(s.timeTaken / 60);
+    const secs = s.timeTaken % 60;
+    const date = new Date(s.date).toLocaleString();
+    return `
+      <tr>
+        <td>${i+1}</td>
+        <td>${s.studentName}</td>
+        <td>${s.score}/${s.total}</td>
+        <td><strong>${s.percent}%</strong></td>
+        <td>${mins}m ${secs}s</td>
+        <td>${date}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function exportResults() {
+  const subs = await CBT.getSubmissions();
+  const rows = [['Name','Group','Score','Total','Percent','Time(s)','Date']];
+  subs.forEach(s => rows.push([s.studentName, s.group, s.score, s.total, s.percent+'%', s.timeTaken, new Date(s.date).toLocaleString()]));
+  downloadCSV(rows, 'results.csv');
+}
+
+// ── Settings ──────────────────────────────────────────────────
+function saveSettings() {
+  const dur = document.getElementById('set-duration').value;
+  const pw  = document.getElementById('set-pw').value.trim();
+  if (dur) localStorage.setItem('bibleCBT_duration', dur);
+  if (pw)  { 
+    localStorage.setItem('bibleCBT_adminpw', pw); 
+    document.getElementById('set-pw').value = ''; 
+  }
+  showAlert('Settings saved successfully.');
+}
+
+// ── Danger zone ───────────────────────────────────────────────
+async function dangerReset() {
+  if (!confirm('⚠ This will delete ALL questions, students, and results from the database. Are you sure?')) return;
+  if (!confirm('Last chance! This CANNOT be undone. Continue?')) return;
   setLoading('Deleting all data…');
   try {
     await CBT.clearAllData();
     renderQuestionPreview();
     renderStudents();
-    showAlert('All data cleared.', 'info');
+    showAlert('All data has been cleared.', 'info');
   } catch(e) {
     showAlert('Error: ' + e.message, 'error');
   }
 }
 
-function downloadCSV(rows, filename) { /* your original */ 
+// ── CSV helper ────────────────────────────────────────────────
+function downloadCSV(rows, filename) {
   const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
