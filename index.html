@@ -33,7 +33,7 @@
     }
     .admin-link a { color: var(--gold); text-decoration: none; font-weight: 600; }
     .admin-link a:hover { text-decoration: underline; }
-    
+
     body {
       background-image: url('https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=1400&q=60');
       background-size: cover;
@@ -48,6 +48,20 @@
       background: rgba(245, 239, 224, 0.72);
       backdrop-filter: blur(3px);
     }
+
+    /* Footer must sit above the body::after overlay */
+    footer {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 1.2rem 1rem;
+      font-size: .82rem;
+      color: #fff;
+      font-family: var(--font-body);
+      font-style: italic;
+      letter-spacing: .03em;
+      text-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
   </style>
 </head>
 <body>
@@ -55,10 +69,10 @@
   <div class="card">
 
     <div class="app-header">
-  <img src="rccg-logo.png" alt="RCCG Logo" style="height:72px; width:auto; margin-bottom:.5rem; display:block; margin-left:auto; margin-right:auto;" />
-  <h1>RCCG Living Water Bible Study Quiz</h1>
-  <p class="subtitle">Computer Based Exam</p>
-</div>
+      <img src="rccg-logo.png" alt="RCCG Logo" style="height:72px; width:auto; margin-bottom:.5rem; display:block; margin-left:auto; margin-right:auto;" />
+      <h1>RCCG Living Water Bible Study Quiz</h1>
+      <p class="subtitle">Computer Based Exam</p>
+    </div>
 
     <div id="alert-box" style="display:none"></div>
 
@@ -66,7 +80,7 @@
 
     <div class="group-selector">
       <button class="group-btn active" data-group="youth" onclick="selectGroup(this)">
-       <span class="g-icon">🧒</span>
+        <span class="g-icon">🧒</span>
         YAYA Class
       </button>
       <button class="group-btn" data-group="adult" onclick="selectGroup(this)">
@@ -102,8 +116,8 @@
   </div>
 </div>
 
-<footer style="text-align:center; padding: 1.2rem; font-size: .78rem; color: var(--ink-soft); opacity: .7; font-family: var(--font-body); font-style: italic;">
-  Built for RCCG Living Water &mdash; by obatom19
+<footer>
+  ✦ Built for RCCG Living Water &mdash; by obatom19 ✦
 </footer>
 
 <script src="app.js"></script>
@@ -122,32 +136,29 @@
     box.style.display = 'block';
   }
 
-  function doLogin() {
+  async function doLogin() {
     const name = document.getElementById('inp-name').value.trim();
     const pin  = document.getElementById('inp-pin').value.trim();
 
     if (!name) { showAlert('Please enter your full name.'); return; }
     if (!pin)  { showAlert('Please enter your PIN.'); return; }
 
-    // Verify the student is in the selected group
-    const students = CBT.getStudents();
-    const match    = students.find(
-      s => s.name.trim().toLowerCase() === name.toLowerCase()
-        && s.pin === pin
-    );
+    showAlert('Checking details, please wait…', 'info');
 
-    if (match && match.group !== selectedGroup) {
-      showAlert(`You are registered in the <strong>${match.group === 'youth' ? 'Youth' : 'Adult'}</strong> class. Please select the correct class above.`);
+    const result = await CBT.studentLogin(name, pin);
+
+    if (!result.ok) { showAlert(result.error); return; }
+
+    if (result.student.group !== selectedGroup) {
+      const correct = result.student.group === 'youth' ? 'YAYA' : 'Adult';
+      showAlert(`You are registered in the <strong>${correct}</strong> class. Please select the correct class above.`);
       return;
     }
 
-    if (match && match.done) {
+    if (result.student.done) {
       showAlert('You have already submitted this exam. Contact the admin if this is a mistake.', 'info');
       return;
     }
-
-    const result = CBT.studentLogin(name, pin);
-    if (!result.ok) { showAlert(result.error); return; }
 
     window.location.href = 'exam.html';
   }
