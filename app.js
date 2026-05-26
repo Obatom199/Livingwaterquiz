@@ -1,14 +1,21 @@
 // ============================================================
-//  BIBLE STUDY CBT — app.js (FULL FIXED VERSION)
+//  BIBLE STUDY CBT — app.js 
+//  FULL VERSION - Supports separate questions for Youth & Adult
 // ============================================================
 
 const SUPABASE_URL  = 'https://jdqzqfpelatygsojovfg.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkcXpxZnBlbGF0eWdzb2pvdmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTgxMzQsImV4cCI6MjA5NTI5NDEzNH0.jK2paV7QhkF64y0ssj0MfjDyF4SpqxO-yaNoJOZImeU';
 const APP_KEY       = 'bibleCBT';
 
-// ── Supabase helper ──────────────────────────────────────────
+// ── Supabase REST helper ─────────────────────────────────────
 async function sb(table, options = {}) {
-  const { method = 'GET', filters = '', body = null, headers = {} } = options;
+  const {
+    method   = 'GET',
+    filters  = '',
+    body     = null,
+    headers  = {},
+  } = options;
+
   const url = `${SUPABASE_URL}/rest/v1/${table}${filters ? '?' + filters : ''}`;
 
   const res = await fetch(url, {
@@ -32,16 +39,7 @@ async function sb(table, options = {}) {
   return text ? JSON.parse(text) : [];
 }
 
-// ── Shuffle ──────────────────────────────────────────────────
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
+// ── Shuffle helpers ──────────────────────────────────────────
 function seededShuffle(arr, seed) {
   const a = [...arr];
   let s = [...seed].reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -53,9 +51,12 @@ function seededShuffle(arr, seed) {
   return a;
 }
 
-// ── Questions ────────────────────────────────────────────────
-async function getQuestions() {
-  const rows = await sb('questions', { filters: 'select=id,text,options,answer&order=id.asc' });
+// ── Questions (Class Specific) ───────────────────────────────
+async function getQuestions(group = null) {
+  let filterStr = 'select=id,text,options,answer,group_name&order=id.asc';
+  if (group) filterStr += `&group_name=eq.${group}`;
+
+  const rows = await sb('questions', { filters: filterStr });
   return rows.map(r => ({
     id:      r.id,
     text:    r.text,
@@ -64,14 +65,22 @@ async function getQuestions() {
   }));
 }
 
-async function saveQuestions(qs) {
-  return await sb('questions', { method: 'POST', body: qs });
+async function saveQuestions(qs, group) {
+  const questionsWithGroup = qs.map(q => ({ 
+    text: q.text, 
+    options: q.options, 
+    answer: q.answer, 
+    group_name: group 
+  }));
+  return await sb('questions', { method: 'POST', body: questionsWithGroup });
 }
 
-async function clearQuestions() {
+async function clearQuestions(group = null) {
+  let filters = 'id=gte.0';
+  if (group) filters += `&group_name=eq.${group}`;
   await sb('questions', {
     method: 'DELETE',
-    filters: 'id=gte.0',
+    filters,
     headers: { 'Prefer': 'return=minimal' },
   });
 }
@@ -170,7 +179,7 @@ async function saveSubmission(sub) {
   });
 }
 
-// ── Session ──────────────────────────────────────────────────
+// ── Session Management ───────────────────────────────────────
 function getSession() {
   try {
     const r = sessionStorage.getItem(`${APP_KEY}_session`);
@@ -186,29 +195,38 @@ function clearSession() {
   sessionStorage.removeItem(`${APP_KEY}_session`);
 }
 
-// ── Duration from Admin Settings ─────────────────────────────
+// ── Duration ─────────────────────────────────────────────────
 function getExamDuration() {
   const saved = localStorage.getItem('bibleCBT_duration');
   return saved ? parseInt(saved) : 60;
 }
 
-// ── Login ────────────────────────────────────────────────────
+// ── Student Login (Loads group-specific questions) ───────────
 async function studentLogin(name, pin) {
-  let students, questions;
+  let students;
   try {
-    [students, questions] = await Promise.all([getStudents(), getQuestions()]);
+    students = await getStudents();
   } catch (e) {
-    return { ok: false, error: 'Could not connect to the server. Check internet.' };
+    return { ok: false, error: 'Could not connect to the server. Check your internet connection.' };
   }
 
   const student = students.find(s => 
     s.name.trim().toLowerCase() === name.trim().toLowerCase() && s.pin === pin.trim()
   );
 
-  if (!student) return { ok: false, error: 'Name or PIN not found.' };
-  if (questions.length === 0) return { ok: false, error: 'No questions loaded yet.' };
+  if (!student) return { ok: false, error: 'Name or PIN not found. Please check and try again.' };
 
-  const questionOrder = seededShuffle(questions.map((_, i) => i), student.pin + student.id);
+  // Load questions for the student's specific class
+  const questions = await getQuestions(student.group);
+
+  if (questions.length === 0) {
+    return { ok: false, error: `No questions have been loaded for the ${student.group} class yet.` };
+  }
+
+  const questionOrder = seededShuffle(
+    questions.map((_, i) => i),
+    student.pin + student.id
+  );
 
   const session = {
     studentId:     student.id,
@@ -248,8 +266,8 @@ async function submitExam() {
   let correct = 0;
 
   const answers = session.questionOrder.map((origIdx, pos) => {
-    const q = questions[origIdx];
-    const chosen = session.answers[pos] ?? -1;
+    const q       = questions[origIdx];
+    const chosen  = session.answers[pos] ?? -1;
     const isRight = chosen === q.answer;
     if (isRight) correct++;
     return { qId: origIdx, chosen, correct: isRight };
@@ -272,6 +290,7 @@ async function submitExam() {
 
   session.submitted = true;
   saveSession(session);
+
   return score;
 }
 
@@ -293,32 +312,32 @@ function generateId() {
 
 function parseBulkQuestions(text) {
   const questions = [];
-  const errors = [];
-  const blocks = text.trim().split(/\n(?=Q:)/);
+  const errors    = [];
+  const blocks    = text.trim().split(/\n(?=Q:)/);
 
   blocks.forEach((block, i) => {
     const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    const get = (prefix) => {
+    const get   = (prefix) => {
       const l = lines.find(x => x.toUpperCase().startsWith(prefix + ':'));
       return l ? l.slice(prefix.length + 1).trim() : null;
     };
 
     const qText = get('Q');
-    const a = get('A');
-    const b = get('B');
-    const c = get('C');
-    const d = get('D');
-    const ans = get('ANS');
+    const a     = get('A');
+    const b     = get('B');
+    const c     = get('C');
+    const d     = get('D');
+    const ans   = get('ANS');
 
     if (!qText || !a || !b || !c || !ans) {
-      errors.push(`Block ${i+1}: missing fields`);
+      errors.push(`Block ${i+1}: missing field(s).`);
       return;
     }
 
     const ansMap = { A: 0, B: 1, C: 2, D: 3 };
     const ansIdx = ansMap[ans.toUpperCase()];
     if (ansIdx === undefined) {
-      errors.push(`Block ${i+1}: ANS must be A/B/C/D`);
+      errors.push(`Block ${i+1}: ANS must be A, B, C, or D.`);
       return;
     }
 
@@ -332,12 +351,12 @@ function parseBulkQuestions(text) {
 async function clearAllData() {
   await Promise.all([
     clearQuestions(),
-    sb('students', { method: 'DELETE', filters: 'id=gte.0', headers: { 'Prefer': 'return=minimal' } }),
-    sb('submissions', { method: 'DELETE', filters: 'id=gte.0', headers: { 'Prefer': 'return=minimal' } }),
+    sb('students',    { method: 'DELETE', filters: 'id=gte.0',   headers: { 'Prefer': 'return=minimal' } }),
+    sb('submissions', { method: 'DELETE', filters: 'id=gte.0',   headers: { 'Prefer': 'return=minimal' } }),
   ]);
 }
 
-// ── Export to Window ─────────────────────────────────────────
+// ── Export CBT Object ────────────────────────────────────────
 window.CBT = {
   getQuestions, saveQuestions, clearQuestions,
   getStudents, addStudent, removeStudent, markStudentDone, resetAllDone,
@@ -347,5 +366,4 @@ window.CBT = {
   timeRemaining, formatTime,
   generateId, parseBulkQuestions, clearAllData,
   getExamDuration,
-  shuffle,
 };
