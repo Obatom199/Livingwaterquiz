@@ -8,7 +8,7 @@ const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const APP_KEY       = 'bibleCBT';
 
 // ── CHANGE THIS NUMBER to set exam duration for ALL devices ──
-const EXAM_MINS = 60;
+const EXAM_MINS = 15;
 // ─────────────────────────────────────────────────────────────
 
 // ── Supabase REST helper ─────────────────────────────────────
