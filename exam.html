@@ -3,18 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RCCG Living Water Bible Study Quiz</title>
+  <title>RCCG LWP CBT Exam</title>
   <link rel="stylesheet" href="style.css" />
   <style>
     body { background: var(--parchment2); }
 
     .exam-wrap { max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
 
+    /* answered indicator */
     .answered-count {
       font-size: .85rem; color: var(--parchment);
       opacity: .75;
     }
 
+    /* submit confirmation modal */
     .modal-overlay {
       display: none; position: fixed; inset: 0; z-index: 50;
       background: rgba(26,18,8,.7); backdrop-filter: blur(2px);
@@ -31,15 +33,33 @@
     .modal p  { color: var(--ink-soft); margin-bottom: 1.5rem; font-size: 1rem; }
     .modal-btns { display: flex; gap: .8rem; justify-content: center; }
 
-    .no-more-msg {
-      background: var(--gold-pale);
-      color: var(--ink);
-      padding: 1rem;
-      border-radius: 8px;
+    /* anti-cheat warning modal */
+    .warning-modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(139,26,26,.85); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    .warning-modal-overlay.open { display: flex; }
+    .warning-modal {
+      background: #fff5f5;
+      border: 3px solid var(--crimson);
+      border-radius: var(--radius);
+      padding: 2rem 2.4rem; max-width: 420px; width: 90%;
+      box-shadow: 0 12px 40px rgba(0,0,0,.5);
       text-align: center;
-      font-weight: 600;
-      margin-top: 1rem;
-      display: none;
+    }
+    .warning-modal .warn-icon { font-size: 3rem; display: block; margin-bottom: .5rem; }
+    .warning-modal h2 {
+      font-family: var(--font-head); color: var(--crimson);
+      font-size: 1.4rem; margin-bottom: .7rem;
+    }
+    .warning-modal p { color: var(--ink-soft); margin-bottom: 1.2rem; font-size: 1rem; }
+    .warning-count {
+      display: inline-block;
+      background: var(--crimson); color: #fff;
+      font-family: var(--font-head); font-weight: 700;
+      padding: .2rem .8rem; border-radius: 30px;
+      font-size: .9rem; margin-bottom: 1rem;
     }
   </style>
 </head>
@@ -67,10 +87,6 @@
   <div class="question-number" id="q-number">Question 1 of 150</div>
   <div class="question-text"  id="q-text"></div>
   <ul class="options-list"    id="options-list"></ul>
-
-  <div id="no-more-msg" class="no-more-msg">
-    No further questions. Please review your answers and click <strong>Submit Exam</strong>.
-  </div>
 
   <div class="exam-nav">
     <button class="btn btn-outline" id="btn-prev" onclick="navigate(-1)">← Previous</button>
@@ -101,6 +117,19 @@
       <button class="btn btn-outline" onclick="closeSubmitModal()">Go Back</button>
       <button class="btn btn-primary" onclick="confirmSubmit()">Yes, Submit</button>
     </div>
+  </div>
+</div>
+
+<!-- Anti-cheat warning modal -->
+<div class="warning-modal-overlay" id="warning-modal">
+  <div class="warning-modal">
+    <span class="warn-icon">⚠️</span>
+    <h2>Warning!</h2>
+    <span class="warning-count" id="warning-count-label">Warning 1 of 1</span>
+    <p>You left the exam screen.<br>
+    <strong>This is your only warning.</strong><br>
+    If you leave the screen again, your exam will be <strong>automatically submitted</strong> immediately.</p>
+    <button class="btn btn-danger btn-full" onclick="dismissWarning()">I Understand — Return to Exam</button>
   </div>
 </div>
 
@@ -147,18 +176,76 @@ function autoSubmit() {
   doSubmit();
 }
 
+// ── Anti-cheat: tab/window visibility detection ───────────────
+const MAX_WARNINGS  = 1;  // number of warnings before auto-submit
+let   warningCount  = 0;
+let   examSubmitted = false;
+
+function handleVisibilityChange() {
+  if (examSubmitted) return;
+  if (document.hidden) {
+    onFocusLost();
+  }
+}
+
+function handleWindowBlur() {
+  if (examSubmitted) return;
+  // Ignore blur if it's just the warning modal opening
+  if (document.getElementById('warning-modal').classList.contains('open')) return;
+  onFocusLost();
+}
+
+function onFocusLost() {
+  if (examSubmitted) return;
+  warningCount++;
+
+  if (warningCount > MAX_WARNINGS) {
+    // Already warned once — auto-submit now
+    forceSubmit();
+  } else {
+    // First offence — show warning
+    document.getElementById('warning-count-label').textContent =
+      `Warning ${warningCount} of ${MAX_WARNINGS}`;
+    document.getElementById('warning-modal').classList.add('open');
+  }
+}
+
+function dismissWarning() {
+  document.getElementById('warning-modal').classList.remove('open');
+}
+
+function forceSubmit() {
+  examSubmitted = true;
+  clearInterval(timerInterval);
+  // Remove listeners to avoid double-trigger
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('blur', handleWindowBlur);
+  // Close any open modals
+  document.getElementById('warning-modal').classList.remove('open');
+  document.getElementById('submit-modal').classList.remove('open');
+  // Show brief message then submit
+  document.getElementById('q-text').innerHTML =
+    '<span style="color:var(--crimson);font-size:1.1rem">⚠ Exam screen left twice. Submitting your exam now…</span>';
+  setTimeout(() => doSubmit(), 1800);
+}
+
+// Attach listeners
+document.addEventListener('visibilitychange', handleVisibilityChange);
+window.addEventListener('blur', handleWindowBlur);
+
 // ── Render question ───────────────────────────────────────────
 function renderQuestion(pos) {
-  currentPos = Math.max(0, Math.min(pos, totalQ - 1));
-  session.currentPos = currentPos;
+  currentPos = pos;
+  session.currentPos = pos;
   CBT.saveSession(session);
-  session = CBT.getSession();
+  session = CBT.getSession(); // re-read
 
-  const q     = CBT.getQuestionAtPos(session, currentPos);
+  const q     = CBT.getQuestionAtPos(session, pos);
   const opts  = ['A', 'B', 'C', 'D'];
-  const saved = session.answers[currentPos] ?? -1;
+  const saved = session.answers[pos] ?? -1;
 
-  document.getElementById('q-number').textContent = `Question ${currentPos + 1} of ${totalQ}`;
+  document.getElementById('q-number').textContent =
+    `Question ${pos + 1} of ${totalQ}`;
   document.getElementById('q-text').textContent = q.text;
 
   const list = document.getElementById('options-list');
@@ -173,14 +260,8 @@ function renderQuestion(pos) {
     list.appendChild(li);
   });
 
-  // Button control
-  document.getElementById('btn-prev').disabled = currentPos === 0;
-  const nextBtn = document.getElementById('btn-next');
-  nextBtn.disabled = currentPos === totalQ - 1;
-
-  // Show message when on last question
-  document.getElementById('no-more-msg').style.display = 
-    (currentPos === totalQ - 1) ? 'block' : 'none';
+  document.getElementById('btn-prev').disabled = pos === 0;
+  document.getElementById('btn-next').disabled = pos === totalQ - 1;
 
   updateProgress();
   updatePalette();
@@ -196,14 +277,8 @@ function selectOption(idx, li) {
 }
 
 function navigate(delta) {
-  let next = currentPos + delta;
-
-  if (next >= totalQ) {
-    document.getElementById('no-more-msg').style.display = 'block';
-    return;
-  }
-  if (next < 0) return;
-
+  const next = currentPos + delta;
+  if (next < 0 || next >= totalQ) return;
   renderQuestion(next);
 }
 
@@ -225,7 +300,7 @@ function buildPalette() {
     btn.className = 'palette-btn';
     btn.textContent = i + 1;
     btn.dataset.pos = i;
-    btn.onclick = () => { renderQuestion(i); };
+    btn.onclick = () => { renderQuestion(i); }
     grid.appendChild(btn);
   }
 }
@@ -265,23 +340,21 @@ function closeSubmitModal() {
   document.getElementById('submit-modal').classList.remove('open');
 }
 
-async function confirmSubmit() {
+function confirmSubmit() {
   clearInterval(timerInterval);
   doSubmit();
 }
 
 async function doSubmit() {
+  examSubmitted = true;
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('blur', handleWindowBlur);
+
   const submitBtn = document.querySelector('.modal-btns .btn-primary');
-  if (submitBtn) { 
-    submitBtn.disabled = true; 
-    submitBtn.textContent = 'Submitting…'; 
-  }
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
 
   const result = await CBT.submitExam();
-  if (!result) { 
-    window.location.href = 'index.html'; 
-    return; 
-  }
+  if (!result) { window.location.href = 'index.html'; return; }
   sessionStorage.setItem('bibleCBT_lastResult', JSON.stringify(result));
   window.location.href = 'results.html';
 }
