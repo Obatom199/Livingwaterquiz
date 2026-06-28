@@ -1,23 +1,19 @@
 // ============================================================
-//  BIBLE STUDY CBT — app.js
-//  Data stored in Supabase. Duration hardcoded for all devices.
+//  BIBLE STUDY CBT — app.js 
+//  FULL VERSION - Supports separate questions for Youth & Adult
 // ============================================================
 
 const SUPABASE_URL  = 'https://jdqzqfpelatygsojovfg.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkcXpxZnBlbGF0eWdzb2pvdmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTgxMzQsImV4cCI6MjA5NTI5NDEzNH0.jK2paV7QhkF64y0ssj0MfjDyF4SpqxO-yaNoJOZImeU';
 const APP_KEY       = 'bibleCBT';
 
-// ── CHANGE THIS NUMBER to set exam duration for ALL devices ──
-const EXAM_MINS = 15;
-// ─────────────────────────────────────────────────────────────
-
 // ── Supabase REST helper ─────────────────────────────────────
 async function sb(table, options = {}) {
   const {
-    method  = 'GET',
-    filters = '',
-    body    = null,
-    headers = {},
+    method   = 'GET',
+    filters  = '',
+    body     = null,
+    headers  = {},
   } = options;
 
   const url = `${SUPABASE_URL}/rest/v1/${table}${filters ? '?' + filters : ''}`;
@@ -44,15 +40,6 @@ async function sb(table, options = {}) {
 }
 
 // ── Shuffle helpers ──────────────────────────────────────────
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function seededShuffle(arr, seed) {
   const a = [...arr];
   let s = [...seed].reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -64,9 +51,9 @@ function seededShuffle(arr, seed) {
   return a;
 }
 
-// ── Questions (class-specific) ───────────────────────────────
+// ── Questions (Class Specific) ───────────────────────────────
 async function getQuestions(group = null) {
-  let filterStr = 'select=id,text,options,answer,bonus,group_name&order=id.asc';
+  let filterStr = 'select=id,text,options,answer,group_name&order=id.asc';
   if (group) filterStr += `&group_name=eq.${group}`;
 
   const rows = await sb('questions', { filters: filterStr });
@@ -75,17 +62,15 @@ async function getQuestions(group = null) {
     text:    r.text,
     options: r.options,
     answer:  r.answer,
-    bonus:   r.bonus || false,
   }));
 }
 
 async function saveQuestions(qs, group) {
-  const questionsWithGroup = qs.map(q => ({
-    text:       q.text,
-    options:    q.options,
-    answer:     q.answer,
-    bonus:      q.bonus || false,
-    group_name: group,
+  const questionsWithGroup = qs.map(q => ({ 
+    text: q.text, 
+    options: q.options, 
+    answer: q.answer, 
+    group_name: group 
   }));
   return await sb('questions', { method: 'POST', body: questionsWithGroup });
 }
@@ -94,7 +79,7 @@ async function clearQuestions(group = null) {
   let filters = 'id=gte.0';
   if (group) filters += `&group_name=eq.${group}`;
   await sb('questions', {
-    method:  'DELETE',
+    method: 'DELETE',
     filters,
     headers: { 'Prefer': 'return=minimal' },
   });
@@ -115,12 +100,12 @@ async function getStudents() {
 async function addStudent(student) {
   const rows = await sb('students', {
     method: 'POST',
-    body: {
-      id:         student.id,
-      name:       student.name,
-      pin:        student.pin,
-      group_name: student.group,
-      done:       false,
+    body: { 
+      id: student.id, 
+      name: student.name, 
+      pin: student.pin, 
+      group_name: student.group, 
+      done: false 
     },
   });
   return rows[0];
@@ -128,7 +113,7 @@ async function addStudent(student) {
 
 async function removeStudent(id) {
   await sb('students', {
-    method:  'DELETE',
+    method: 'DELETE',
     filters: `id=eq.${id}`,
     headers: { 'Prefer': 'return=minimal' },
   });
@@ -136,28 +121,28 @@ async function removeStudent(id) {
 
 async function markStudentDone(id) {
   await sb('students', {
-    method:  'PATCH',
+    method: 'PATCH',
     filters: `id=eq.${id}`,
-    body:    { done: true },
+    body: { done: true },
     headers: { 'Prefer': 'return=minimal' },
   });
 }
 
 async function resetAllDone() {
   await sb('students', {
-    method:  'PATCH',
+    method: 'PATCH',
     filters: 'done=eq.true',
-    body:    { done: false },
+    body: { done: false },
     headers: { 'Prefer': 'return=minimal' },
   });
   await sb('submissions', {
-    method:  'DELETE',
+    method: 'DELETE',
     filters: 'id=gte.0',
     headers: { 'Prefer': 'return=minimal' },
   });
 }
 
-// ── Submissions ───────────────────────────────────────────────
+// ── Submissions ──────────────────────────────────────────────
 async function getSubmissions() {
   const rows = await sb('submissions', { filters: 'select=*&order=score.desc' });
   return rows.map(r => ({
@@ -188,13 +173,13 @@ async function saveSubmission(sub) {
       date:         sub.date,
     },
     headers: {
-      'Prefer':      'resolution=merge-duplicates,return=minimal',
+      'Prefer': 'resolution=merge-duplicates,return=minimal',
       'on_conflict': 'student_id',
     },
   });
 }
 
-// ── Session (stays local per tab — correct behaviour) ────────
+// ── Session Management ───────────────────────────────────────
 function getSession() {
   try {
     const r = sessionStorage.getItem(`${APP_KEY}_session`);
@@ -210,7 +195,13 @@ function clearSession() {
   sessionStorage.removeItem(`${APP_KEY}_session`);
 }
 
-// ── Login ────────────────────────────────────────────────────
+// ── Duration ─────────────────────────────────────────────────
+function getExamDuration() {
+  const saved = localStorage.getItem('bibleCBT_duration');
+  return saved ? parseInt(saved) : 15;
+}
+
+// ── Student Login (Loads group-specific questions) ───────────
 async function studentLogin(name, pin) {
   let students;
   try {
@@ -219,14 +210,13 @@ async function studentLogin(name, pin) {
     return { ok: false, error: 'Could not connect to the server. Check your internet connection.' };
   }
 
-  const student = students.find(
-    s => s.name.trim().toLowerCase() === name.trim().toLowerCase()
-      && s.pin === pin.trim()
+  const student = students.find(s => 
+    s.name.trim().toLowerCase() === name.trim().toLowerCase() && s.pin === pin.trim()
   );
 
   if (!student) return { ok: false, error: 'Name or PIN not found. Please check and try again.' };
 
-  // Load questions for this student's specific class only
+  // Load questions for the student's specific class
   const questions = await getQuestions(student.group);
 
   if (questions.length === 0) {
@@ -247,7 +237,7 @@ async function studentLogin(name, pin) {
     answers:       {},
     currentPos:    0,
     startTime:     Date.now(),
-    durationMs:    EXAM_MINS * 60 * 1000,  // uses hardcoded constant — same for ALL devices
+    durationMs:    getExamDuration() * 60 * 1000,
     submitted:     false,
   };
 
@@ -255,7 +245,7 @@ async function studentLogin(name, pin) {
   return { ok: true, student };
 }
 
-// ── Exam helpers ─────────────────────────────────────────────
+// ── Exam Helpers ─────────────────────────────────────────────
 function getQuestionAtPos(session, pos) {
   const origIdx = session.questionOrder[pos];
   return { ...session.questions[origIdx], origIdx };
@@ -278,8 +268,7 @@ async function submitExam() {
   const answers = session.questionOrder.map((origIdx, pos) => {
     const q       = questions[origIdx];
     const chosen  = session.answers[pos] ?? -1;
-    // BONUS questions: any selected answer counts as correct
-    const isRight = q.bonus ? (chosen >= 0) : (chosen === q.answer);
+    const isRight = chosen === q.answer;
     if (isRight) correct++;
     return { qId: origIdx, chosen, correct: isRight };
   });
@@ -305,7 +294,6 @@ async function submitExam() {
   return score;
 }
 
-// ── Timer helpers ────────────────────────────────────────────
 function timeRemaining(session) {
   const elapsed = Date.now() - session.startTime;
   return Math.max(0, Math.floor((session.durationMs - elapsed) / 1000));
@@ -317,7 +305,7 @@ function formatTime(secs) {
   return `${m}:${s}`;
 }
 
-// ── Admin helpers ────────────────────────────────────────────
+// ── Admin Helpers ────────────────────────────────────────────
 function generateId() {
   return Math.random().toString(36).slice(2, 9).toUpperCase();
 }
@@ -341,35 +329,20 @@ function parseBulkQuestions(text) {
     const d     = get('D');
     const ans   = get('ANS');
 
-    if (!qText || !a || !b || !ans) {
-      errors.push(`Block ${i+1}: missing field(s). Needs at least Q, A, B, ANS.`);
-      return;
-    }
-
-    // Build options — supports 2 (True/False), 3, or 4 choices
-    const options = [a, b];
-    if (c) options.push(c);
-    if (d) options.push(d);
-
-    // BONUS: any answer the student picks is marked correct
-    if (ans.trim().toUpperCase() === 'BONUS') {
-      questions.push({ text: qText, options, answer: -1, bonus: true });
+    if (!qText || !a || !b || !c || !ans) {
+      errors.push(`Block ${i+1}: missing field(s).`);
       return;
     }
 
     const ansMap = { A: 0, B: 1, C: 2, D: 3 };
     const ansIdx = ansMap[ans.toUpperCase()];
     if (ansIdx === undefined) {
-      errors.push(`Block ${i+1}: ANS must be A, B, C, D, or BONUS.`);
+      errors.push(`Block ${i+1}: ANS must be A, B, C, or D.`);
       return;
     }
 
-    if (ansIdx >= options.length) {
-      errors.push(`Block ${i+1}: ANS "${ans}" is out of range for ${options.length} options.`);
-      return;
-    }
-
-    questions.push({ text: qText, options, answer: ansIdx, bonus: false });
+    const options = d ? [a, b, c, d] : [a, b, c];
+    questions.push({ text: qText, options, answer: ansIdx });
   });
 
   return { questions, errors };
@@ -378,26 +351,19 @@ function parseBulkQuestions(text) {
 async function clearAllData() {
   await Promise.all([
     clearQuestions(),
-    sb('students',    { method: 'DELETE', filters: 'id=gte.0', headers: { 'Prefer': 'return=minimal' } }),
-    sb('submissions', { method: 'DELETE', filters: 'id=gte.0', headers: { 'Prefer': 'return=minimal' } }),
+    sb('students',    { method: 'DELETE', filters: 'id=gte.0',   headers: { 'Prefer': 'return=minimal' } }),
+    sb('submissions', { method: 'DELETE', filters: 'id=gte.0',   headers: { 'Prefer': 'return=minimal' } }),
   ]);
 }
 
-// ── Export ───────────────────────────────────────────────────
+// ── Export CBT Object ────────────────────────────────────────
 window.CBT = {
-  // questions
   getQuestions, saveQuestions, clearQuestions,
-  // students
   getStudents, addStudent, removeStudent, markStudentDone, resetAllDone,
-  // submissions
   getSubmissions, saveSubmission,
-  // session
   getSession, saveSession, clearSession,
-  // exam
   studentLogin, getQuestionAtPos, recordAnswer, submitExam,
   timeRemaining, formatTime,
-  // admin
   generateId, parseBulkQuestions, clearAllData,
-  shuffle,
-  EXAM_MINS,
+  getExamDuration,
 };
